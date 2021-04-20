@@ -41,6 +41,8 @@ library(shiny)
 
 ```
 
+Il codice usato per la presentazione è disponibile sulla mia pagina [GitHub](https://github.com/OttaviaE/irt).
+
 # Georg Rasch 
 
 ## Dalla base {.build}
@@ -710,37 +712,4 @@ plot(grm, type = "IIC", items = 0, main = "GRM")
 
 - Egidio Robusto
 
-
-<!-- <h3 style="text-align:center;"> PRM </h3> -->
-
-<!-- ```{r} -->
-<!-- d1 <- data.frame(prm$coefficients) -->
-<!-- for (i in 1:ncol(d1)) { -->
-<!--   d1[,i] <- round(d1[,i], 2) -->
-<!-- } -->
-<!-- kable(d1) -->
-<!-- ``` -->
-
-
-<!-- <h3 style="text-align:center;"> PCM </h3> -->
-
-<!-- ```{r} -->
-<!-- d2 <- data.frame(pcm$coefficients) -->
-<!-- for (i in 1:ncol(d2)) { -->
-<!--   d2[,i] <- round(d2[,i], 2) -->
-<!-- } -->
-<!-- kable(d2) -->
-<!-- ``` -->
-
-<!-- <p class="forceBreak"></p> -->
-
-<!-- <h3 style="text-align:center;"> GRM </h3> -->
-
-<!-- ```{r} -->
-<!-- d3 <- data.frame(grm$coefficients) -->
-<!-- for (i in 1:ncol(d3)) { -->
-<!--   d3[,i] <- round(d3[,i], 2) -->
-<!-- } -->
-<!-- kable(d3) -->
-<!-- ``` -->
 
