@@ -9,10 +9,109 @@ toc_float: true
 editor_options: 
   chunk_output_type: console
 ---
-  
-```{r echo=F}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = F)
 load("check_IIF.RData")
 ```
+  
+
+Forma lunga: `r n_item`
+
+Forma breve (e conseguentemente numero di $\theta'$s): `r n_theta`
+
+seed fisso a 999
+
+numero simulazioni: `r s`
+
+## Simulazione dati
+
+```{r}
+theta_target[[m]] = runif(n_theta, -3, 3) # simula i theta target ad ogni iterazione
+
+item[[m]] = data.frame(item = paste("item", n_item), # simula gli item ad ogni 
+                    b = c(runif(n_item, -3,3)),      # simulazione
+                    a = c(runif(n_item, .20, 2)), 
+                    g = c(runif(n_item, .05, .5 )))
+```
+
+## Calcolo informatività per ogni $\theta'$
+
+
+
+```{r}
+ for (i in 1:nrow(item[[m]])) {
+    temp = item[[m]][i, ]
+    for (j in 1:length(theta_target[[m]])) {
+      # 1pl 
+      p_1pl[[m]][i, j] =  exp((theta_target[[m]][j] - temp$b))/(1 + exp((theta_target[[m]][j] - temp$b)))
+      q_1pl[[m]][i, j] = 1-(p_1pl[[m]][i, j])
+      # info_1pl
+      ii_1pl[[m]][i,j] = p_1pl[[m]][i,j] * q_1pl[[m]][i,j]
+      # 2pl 
+      p_2pl[[m]][i, j] =  exp(temp$a *(theta_target[[m]][j] - temp$b))/(1 + exp(temp$a *(theta_target[[m]][j] - temp$b)))
+      q_2pl[[m]][i, j] = 1-(p_2pl[[m]][i, j])
+      # info 2pl 
+      ii_2pl[[m]][i,j] = temp$a^2 * p_2pl[[m]][i,j] * q_2pl[[m]][i,j]
+      # # 3pl 
+      p_3pl[[m]][i, j] =  temp$g + (1-temp$g)*(exp(temp$a *(theta_target[[m]][j] - temp$b))/(1 + exp(temp$a *(theta_target[[m]][j] - temp$b))))
+      q_3pl[[m]][i, j] = 1-(p_3pl[[m]][i, j])
+      # info 3pl
+      ii_3pl[[m]][i, j] = temp$a^2 * (p_3pl[[m]][i,j] / q_3pl[[m]][i,j])*((p_3pl[[m]][i,j] -temp$g)/(1-temp$g))^2
+    }
+  }
+```
+
+
+## Selezione degli item
+
+### Procedura $\theta'$
+
+Secondo la nostra procedura, vengono scelti gli item "migliori" per ogni theta target. Il risultato finale è una matrice del genere: 
+
+```{r echo=FALSE, eval=TRUE}
+info_chosen_1pl[[1]]
+```
+
+Sommando tutte le info rimaste nella matrice, si ottiene `r sum(info_chosen_1pl[[1]][,-1])`
+
+### Procedura item scelti a caso
+
+Per scegliere a caso, ho usato tutte le possibili combinazioni di item che si possono ottenere dal numero di item del test lungo: 
+
+```{r eval = T}
+item_c = data.frame(combn(paste("item", 1:n_item), 
+                          n_theta))
+item_c
+```
+
+Utilizzo queste combinazioni per ottenere delle forme brevi casuali con tutte le possibili combinazioni di item, come segue: 
+
+```{r eval = T}
+sel_item_2pl[[1]][[1]][,-ncol(sel_item_2pl[[1]][[1]])]
+```
+
+L'informatività totale è data anche in questo caso dal totale delle IIF all'interno della matrice, risultando in `r sel_item_2pl[[1]][[1]][1,"tot"]`
+
+## Confronto casuale vs. procedura
+
+Creo un data set dove metto la selezione di item casuale, il totale della loro informatività, la combinazione di item scelta dalla procedura con la rispettiva informatività massima della matrice e infine una colonna (problem) che indica se l'info della versione casuale è maggiore dell'info della versione scelta (0= è maggiore quella della combo scelta, 1 =è maggiore quella casuale).
+
+```{r eval = T}
+small_sel_1pl[[1]]
+```
+
+### Risultati 
+
+1PL: `r sum(problem_1pl)/length(problem_1pl)*100`
+info casuale maggiore di quella scelta
+
+2PL: `r sum(problem_2pl)/length(problem_2pl)*100`
+info casuale maggiore di quella scelta
+
+
+3PL: `r sum(problem_3pl)/length(problem_3pl)*100`
+info casuale maggiore di quella scelta
 
 
 

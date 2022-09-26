@@ -439,7 +439,97 @@ div.tocify {
 </div>
 
 
+<p>Forma lunga: 5</p>
+<p>Forma breve (e conseguentemente numero di <span class="math inline">\(\theta&#39;\)</span>s): 3</p>
+<p>seed fisso a 999</p>
+<p>numero simulazioni: 1000</p>
+<div id="simulazione-dati" class="section level2" number="0.1">
+<h2><span class="header-section-number">0.1</span> Simulazione dati</h2>
+<pre class="r"><code>theta_target[[m]] = runif(n_theta, -3, 3) # simula i theta target ad ogni iterazione
 
+item[[m]] = data.frame(item = paste(&quot;item&quot;, n_item), # simula gli item ad ogni 
+                    b = c(runif(n_item, -3,3)),      # simulazione
+                    a = c(runif(n_item, .20, 2)), 
+                    g = c(runif(n_item, .05, .5 )))</code></pre>
+</div>
+<div id="calcolo-informatività-per-ogni-theta" class="section level2" number="0.2">
+<h2><span class="header-section-number">0.2</span> Calcolo informatività per ogni <span class="math inline">\(\theta&#39;\)</span></h2>
+<pre class="r"><code> for (i in 1:nrow(item[[m]])) {
+    temp = item[[m]][i, ]
+    for (j in 1:length(theta_target[[m]])) {
+      # 1pl 
+      p_1pl[[m]][i, j] =  exp((theta_target[[m]][j] - temp$b))/(1 + exp((theta_target[[m]][j] - temp$b)))
+      q_1pl[[m]][i, j] = 1-(p_1pl[[m]][i, j])
+      # info_1pl
+      ii_1pl[[m]][i,j] = p_1pl[[m]][i,j] * q_1pl[[m]][i,j]
+      # 2pl 
+      p_2pl[[m]][i, j] =  exp(temp$a *(theta_target[[m]][j] - temp$b))/(1 + exp(temp$a *(theta_target[[m]][j] - temp$b)))
+      q_2pl[[m]][i, j] = 1-(p_2pl[[m]][i, j])
+      # info 2pl 
+      ii_2pl[[m]][i,j] = temp$a^2 * p_2pl[[m]][i,j] * q_2pl[[m]][i,j]
+      # # 3pl 
+      p_3pl[[m]][i, j] =  temp$g + (1-temp$g)*(exp(temp$a *(theta_target[[m]][j] - temp$b))/(1 + exp(temp$a *(theta_target[[m]][j] - temp$b))))
+      q_3pl[[m]][i, j] = 1-(p_3pl[[m]][i, j])
+      # info 3pl
+      ii_3pl[[m]][i, j] = temp$a^2 * (p_3pl[[m]][i,j] / q_3pl[[m]][i,j])*((p_3pl[[m]][i,j] -temp$g)/(1-temp$g))^2
+    }
+  }</code></pre>
+</div>
+<div id="selezione-degli-item" class="section level2" number="0.3">
+<h2><span class="header-section-number">0.3</span> Selezione degli item</h2>
+<div id="procedura-theta" class="section level3" number="0.3.1">
+<h3><span class="header-section-number">0.3.1</span> Procedura <span class="math inline">\(\theta&#39;\)</span></h3>
+<p>Secondo la nostra procedura, vengono scelti gli item “migliori” per ogni theta target. Il risultato finale è una matrice del genere:</p>
+<pre><code>##          item -2.43200586782768 -0.665571749210358 0.498364308848977
+## item 3 item 3        0.24863489          0.1380623        0.05489015
+## item 4 item 4        0.04236729          0.1678891        0.24877346
+## item 5 item 5        0.24957763          0.1175238        0.04466311</code></pre>
+<p>Sommando tutte le info rimaste nella matrice, si ottiene 1.3123817</p>
+</div>
+<div id="procedura-item-scelti-a-caso" class="section level3" number="0.3.2">
+<h3><span class="header-section-number">0.3.2</span> Procedura item scelti a caso</h3>
+<p>Per scegliere a caso, ho usato tutte le possibili combinazioni di item che si possono ottenere dal numero di item del test lungo:</p>
+<pre class="r"><code>item_c = data.frame(combn(paste(&quot;item&quot;, 1:n_item), 
+                          n_theta))
+item_c</code></pre>
+<pre><code>##       X1     X2     X3     X4     X5     X6     X7     X8     X9    X10
+## 1 item 1 item 1 item 1 item 1 item 1 item 1 item 2 item 2 item 2 item 3
+## 2 item 2 item 2 item 2 item 3 item 3 item 4 item 3 item 3 item 4 item 4
+## 3 item 3 item 4 item 5 item 4 item 5 item 5 item 4 item 5 item 5 item 5</code></pre>
+<p>Utilizzo queste combinazioni per ottenere delle forme brevi casuali con tutte le possibili combinazioni di item, come segue:</p>
+<pre class="r"><code>sel_item_2pl[[1]][[1]][,-ncol(sel_item_2pl[[1]][[1]])]</code></pre>
+<pre><code>##          item -2.43200586782768 -0.665571749210358 0.498364308848977
+## item 1 item 1        0.01298145         0.05660120        0.12473198
+## item 2 item 2        0.00728847         0.06890972        0.24055588
+## item 3 item 3        0.12717876         0.09289304        0.05408351</code></pre>
+<p>L’informatività totale è data anche in questo caso dal totale delle IIF all’interno della matrice, risultando in 0.785224</p>
+</div>
+</div>
+<div id="confronto-casuale-vs.-procedura" class="section level2" number="0.4">
+<h2><span class="header-section-number">0.4</span> Confronto casuale vs. procedura</h2>
+<p>Creo un data set dove metto la selezione di item casuale, il totale della loro informatività, la combinazione di item scelta dalla procedura con la rispettiva informatività massima della matrice e infine una colonna (problem) che indica se l’info della versione casuale è maggiore dell’info della versione scelta (0= è maggiore quella della combo scelta, 1 =è maggiore quella casuale).</p>
+<pre class="r"><code>small_sel_1pl[[1]]</code></pre>
+<pre><code>##                    item       tot            item_gold     gold problem
+## 1  item 1 item 2 item 3 0.9132103 item 3 item 4 item 5 1.312382       0
+## 2  item 1 item 2 item 4 0.9306527 item 3 item 4 item 5 1.312382       0
+## 3  item 1 item 2 item 5 0.8833874 item 3 item 4 item 5 1.312382       0
+## 4  item 1 item 3 item 4 1.1040735 item 3 item 4 item 5 1.312382       0
+## 5  item 1 item 3 item 5 1.0568082 item 3 item 4 item 5 1.312382       0
+## 6  item 1 item 4 item 5 1.0742507 item 3 item 4 item 5 1.312382       0
+## 7  item 2 item 3 item 4 1.1687838 item 3 item 4 item 5 1.312382       0
+## 8  item 2 item 3 item 5 1.1215185 item 3 item 4 item 5 1.312382       0
+## 9  item 2 item 4 item 5 1.1389609 item 3 item 4 item 5 1.312382       0
+## 10 item 3 item 4 item 5 1.3123817 item 3 item 4 item 5 1.312382       0</code></pre>
+<div id="risultati" class="section level3" number="0.4.1">
+<h3><span class="header-section-number">0.4.1</span> Risultati</h3>
+<p>1PL: 51.7
+info casuale maggiore di quella scelta</p>
+<p>2PL: 36.6
+info casuale maggiore di quella scelta</p>
+<p>3PL: 47.1
+info casuale maggiore di quella scelta</p>
+</div>
+</div>
 
 
 

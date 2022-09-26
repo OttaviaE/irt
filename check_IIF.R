@@ -52,7 +52,7 @@ for (m in 1:s) {
   # compute information for each item for each theta target (cluster and guided strategies)
   theta_target[[m]] = theta_target[[m]][order(theta_target[[m]])]
   # 1pl ----
-   p_1pl[[m]] = data.frame(matrix(nrow = nrow(item[[m]]),
+  p_1pl[[m]] = data.frame(matrix(nrow = nrow(item[[m]]),
                                  ncol = length(theta_target[[m]])))
   q_1pl[[m]] = data.frame(matrix(nrow = nrow(item[[m]]),
                                  ncol = length(theta_target[[m]])))
