@@ -1,0 +1,855 @@
+---
+title: "Less is more"
+subtitle: "Un approccio Item Response Theory per l'anima de li mortacci vostra merde"
+author: "Ottavia M. Epifania, Pasquale Anselmi, Egidio Robusto"
+date: 'Università di Padova'
+header-includes: 
+output:
+  ioslides_presentation: 
+    logo: uniPD.png
+    css: style.css
+    runtime: shiny
+  md_document: default
+editor_options: 
+  chunk_output_type: console
+---
+<style type="text/css">
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 12.5px
+}
+</style>
+
+<style>
+.forceBreak { -webkit-column-break-after: always; break-after: column; }
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff=80), tidy= TRUE)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = NA, 
+  echo = FALSE, 
+  warning = FALSE, 
+  eval = TRUE
+)
+
+
+library(ggplot2)
+library(sjPlot)
+library(corrplot)
+library(nnet)
+library(formatR)
+library(kableExtra)
+library(shiny)
+library(tableHTML)
+
+i_info <- function(b, a=1,c=0, theta = seq(-5,5,length.out=1000)){
+
+ 
+P <- NULL 
+Q <- NULL
+Ii <- NULL
+
+for(i in 1:1000){
+  P[i] <- 1/(1+ exp (-a*(theta[i] - b)))
+  Q[i]= 1-P[i]
+  Ii[i] =(a*Q[i]*(P[i]-c)^2)/(P[i]*((1-c)^2)) # (3PL)
+   }
+return(Ii)
+}
+
+
+# Function to get all item information
+item_info <- function(b,a=1){
+item <- NULL
+  for(i in 1:length(b)){
+  item[[i]] <- i_info(b[i],a[i])
+  }
+return(item)
+}
+
+
+b <- c(-3,0, 3)
+a <- rep(1, length(b))
+# Get all item information
+c <- item_info(b,a)
+
+Theta <- matrix(seq(-4,4, length.out=1000))
+check <- data.frame(Theta, 
+                    item_info = c[[1]], 
+                    item_info2 = c[[2]], 
+                    item_info3 = c[[3]])
+
+
+
+
+
+d <- do.call('cbind',c)
+sum_info1 <- rowSums(d)
+
+```
+
+Il codice usato per la presentazione è disponibile sulla mia pagina [GitHub](https://github.com/OttaviaE/irt).
+
+## Qualche stronzata introduttiva
+
+MA cosa ci sto a fare io qui che tanto sperimenatle sono solo neurominchiate
+
+
+## I modelli dell'Item Response Theory {.build}
+
+Soggetto: $p = 1, \ldots, P$
+
+Item: $i = 1, \ldots, I$
+
+$$P(x=1|\theta_p, b_i,a_i) = \frac{exp [a_i(\theta_p - b_i)]}{1 + exp [a_i(\theta_p - b_i)]}$$
+
+dove: 
+
+
+<div >
+
+$\theta_p$:  Abilità del soggetto <font size="3">(i.e., quantità di tratto latente posseduta dal soggetto)</font> 
+
+$b_s$: Difficoltà dell'item <font size="3">(i.e., quatità di tratto latente che il soggetto deve avere per dare una risposta corretta) </font>
+
+$a_s$: Discriminatività dell'item <font size="3">(i.e., capacità dell'item di distinguere tra livelli molto elevati e molto bassi del tratto latente)</font>
+
+</div>
+
+## Un esempio grafico
+
+
+```{r, fig.align='center'}
+IRT <- function(theta, a = 1, b = 0, c = 0,e = 1) {
+  y <- c + (e - c) * exp(a * (theta - b)) / (1 + exp(a * (theta - b)))
+  y[is.na(y)] = 1
+  return(y)
+}
+difficulty <- c(0,0, 0)
+disc <- c(0.20, .70, 1.90)
+theta <- theta <- seq(-7, 7, .001)
+par(mar = c(5,7,4,2) + 0.1) 
+# item a
+plot(theta, IRT(theta, b=difficulty[1], a = disc[1]),
+     cex.lab= 2, 
+     cex.axis =1.5,
+       xlab = expression(theta), ylab = bquote(.("P(x = 1)")),
+       xlim = c(-5, 5), ylim = c(0, 1), 
+     type = "l", lwd = 3, 
+     col = "royalblue")
+abline(h = 0.50, lty=2)
+abline(v = -2, lty = 2)
+abline(v = 2, lty = 2)
+text(x = difficulty[2] -2.5, y =0.3, "item a", 
+     col = "royalblue",  cex = 2)
+#item B
+lines(theta, IRT(theta, b = difficulty[2], a =disc[2]), lty = 4, lwd=3, col = "magenta")
+text(x = difficulty[2]-1 , y =0.6, "item b", 
+     col = "magenta",  cex = 2)
+
+# item C
+  lines(theta, IRT(theta, b = difficulty[3], a = disc[3]), lty = 2, lwd=3, col = "seagreen")
+  text(x = difficulty[3]+1.5 , y =0.9, "item c", 
+     col = "seagreen",  cex = 2)
+
+  
+```
+
+## Information function {.columns-2 .smaller .build}
+
+<h3> Item Information Function </h3> 
+
+$I_i(\theta) = a^2 P_i(\theta)(1- P_i(\theta))$
+
+
+```{r, fig.align='center'}
+b <- c(-3,0, 3)
+a <- c(0.50, 1, 1.80)
+
+c <- item_info(b,a)
+
+
+Theta <- matrix(seq(-4,4, length.out=1000))
+check <- data.frame(Theta,
+                    item_info = c[[1]],
+                    item_info2 = c[[2]],
+                    item_info3 = c[[3]])
+
+
+
+
+d1 <- do.call('cbind',c)
+sum_info2 <- rowSums(d1)
+
+
+```
+
+
+```{r, out.width="95%", fig.align='center'}
+ plot(check$Theta, check$item_info, ylim= c(0, 0.8), cex.lab= 2,
+      cex.axis =1.5,
+        xlab = expression(theta), ylab = bquote(.("I", expression(theta))),
+ type = "l", lwd =2,
+      col = "royalblue")
+ lines(check$Theta, check$item_info2, lwd =2,
+       col = "magenta")
+ lines(check$Theta, check$item_info3, lwd =2,
+       col = "seagreen")
+ abline(h = 0.25)
+
+ text(x = -2.5, y = 0.20, "item a", cex = 2, col = "royalblue")
+ text(x = -0.5, y = 0.30, "item b", cex = 2, col = "magenta")
+ text(x = 2.5, y = 0.50, "item c", cex = 2, col = "seagreen")
+```
+
+
+<div>
+
+```{r}
+data.frame(item_a = c(b[1], a[1]),
+           item_b = c(b[2], a[2]),
+           item_c = c(b[3], a[3]),
+           row.names = c("difficulty", "discrimination"))
+```
+
+</div>
+
+
+<p class="forceBreak"></p>
+
+<h3> Test Information Function </h3>
+
+
+
+$I(\theta) = \displaystyle \sum_{i = 1}^{n} I_i(\theta)$
+
+```{r,out.width="95%", fig.align='center'}
+Theta <- matrix(seq(-4,4, length.out=1000))
+check <- data.frame(Theta, sum_info1, sum_info2)
+
+plot(check$Theta, check$sum_info2, 
+       type = "l", lwd =2, 
+     col = "seagreen",
+       xlab = expression(theta), ylab = bquote(.("I", expression(theta))), ylim = c(0, 0.8))
+# lines(check$Theta, check$sum_info2, 
+#        type = "l", lwd =2, 
+#      col = "seagreen")
+#text(x = -1.5, y = 0.35, "Rasch", cex = 2, col = "royalblue")
+text(x = 1.5, y = 0.50, "2PL", cex = 2, col = "seagreen")
+
+```
+
+
+
+## Creare forme brevi
+
+Dati i seguenti 10 item:
+
+
+
+```{r}
+set.seed(999)
+item = data.frame(item = paste("item", 1:10), 
+                  b = c(runif(10, -3,3)),
+                  a = c(runif(10, .20, 2)))
+true_theta = rnorm(1000)
+p_all = data.frame(matrix(nrow = nrow(item),
+                              ncol = length(true_theta)))
+q_all = data.frame(matrix(nrow = nrow(item),
+                              ncol = length(true_theta)))
+ii_all = data.frame(matrix(nrow = nrow(item),
+                               ncol = length(true_theta)))
+colnames(ii_all) = true_theta
+true_theta = true_theta[order(true_theta)]
+for (i in 1:nrow(item)) {
+      temp = item[i, ]
+      for (j in 1:length(true_theta)) {
+        p_all[i, j] =  exp(temp$a *(true_theta[j] - temp$b))/(1 + exp(temp$a *(true_theta[j] - temp$b)))
+        q_all[i, j] = 1-(exp(temp$a *(true_theta[j] - temp$b))/(1 + exp(temp$a *(true_theta[j] - temp$b))))
+
+        ii_all[i,j] = temp$a^2 * p_all[i,j] *q_all[i,j]
+      }
+}
+
+info_total = mean(colSums(ii_all))
+item$IIF = rowMeans(ii_all)
+for(i in 2:ncol(item)) {
+  item[, i] = round(item[,i], 2)
+}
+
+rownames(item) = item$item
+item$item = NULL
+
+
+item %>%
+  kbl() %>%
+  kable_styling("hover", full_width = TRUE,font_size = 18) #%>% 
+   #row_spec(c(2,4,6,1,8), bold = T, background = "lightcyan")
+
+```
+
+
+
+## Strategia classica
+
+$item = max(I(\theta))$
+
+Seleziona i 5 item che forniscono l'informatività maggiore
+
+```{r}
+small = item[order(item$IIF, decreasing = T), ]
+
+small[1:5, ] %>%
+  knitr::kable() %>%
+  kable_styling("hover", full_width = TRUE,font_size = 18) %>% 
+   row_spec(c(1:5), bold = T)
+```
+
+
+
+## Strategie basate su $\theta$ target {.columns-2 .smaller .build}
+
+<h3> Cluster </h3> 
+
+$item = max(I(\theta_k))$ dove $k$ è il cluster
+
+Seleziona i 5 item maggiormente informativi per 5 $\theta$ target (i.e., i centroidi dei cluster): 
+
+```{r, out.width="50%"}
+
+theta_target = 5
+theta_target = stats::kmeans(matrix(true_theta, ncol = 1),
+                   centers = theta_target)
+theta_target = (theta_target$centers)
+name = "cluster"
+# compute information for each item for each theta target (cluster and guided strategies)
+p = data.frame(matrix(nrow = nrow(item),
+                          ncol = length(theta_target)))
+q = data.frame(matrix(nrow = nrow(item),
+                          ncol = length(theta_target)))
+ii = data.frame(matrix(nrow = nrow(item),
+                           ncol = length(theta_target)))
+theta_target = theta_target[order(theta_target)]
+colnames(ii) = theta_target
+rownames(ii) = paste0("item", 1:nrow(item))
+temp = NULL
+    for (i in 1:nrow(item)) {
+      temp = item[i, ]
+      for (j in 1:length(theta_target)) {
+        p[i, j] =  exp(temp$a *(theta_target[j] - temp$b))/(1 + exp(temp$a *(theta_target[j] - temp$b)))
+        q[i, j] = 1-(exp(temp$a *(theta_target[j] - temp$b))/(1 + exp(temp$a *(theta_target[j] - temp$b))))
+
+        ii[i,j] = temp$a^2 * p[i,j] * q[i,j]
+      }
+    }
+
+    ii$item =rownames(ii)
+    ii = ii[, c(ncol(ii), 1:(ncol(ii)-1))]
+
+    ii_long = stats::reshape(ii,
+                             idvar = "item",
+                             direction = "long",
+                             varying = list(2:ncol(ii)),
+                             v.names = "info",
+                             timevar = "theta_target",
+                             times = names(ii)[-1])
+
+
+    max_data = stats::aggregate(info ~ item + theta_target,
+                                data = ii_long, max)
+
+    max_data =  max_data[order(as.numeric(max_data$theta_target)), ]
+
+    temp = NULL
+    max_info = NULL
+
+
+    for(i in 1:length(unique(max_data$theta_target))) {
+      temp1 = max_data[which(max_data$info == max(max_data$info)), ]
+      max_data = max_data[which(max_data$item != temp1$item & max_data$theta_target != temp1$theta_target), ]
+      max_info = rbind(max_info, temp1)
+    }
+max_info$theta_target = as.numeric(max_info$theta_target)
+for (i in 2:ncol(max_info)) {
+  max_info[, i] = round(max_info[, i], 2)
+}
+
+max_info = max_info[order(max_info$theta_target), ]
+
+colnames(max_info)[2:3] = c("theta target", "IIF")
+
+max_info %>%
+  kbl(row.names = FALSE) %>%
+  kable_styling("hover", full_width = TRUE, font_size = 18)
+
+
+```
+
+
+
+<p class="forceBreak"></p>
+
+<h3> Gruppi </h3>
+
+
+
+$item = max(I(\theta_g))$ dove $g$ è il gruppo
+
+Seleziona i 5 item maggiormente informativi per 5 $\theta$ target (i.e., i $\theta$ che dividono il tratto latente in 5 intervalli)
+
+
+```{r,out.width="95%", fig.align='center'}
+theta_target = 5
+theta_target = seq(min(true_theta),max(true_theta),
+                     length.out = theta_target)
+    # compute information for each item for each theta target (cluster and guided strategies)
+    p = data.frame(matrix(nrow = nrow(item),
+                          ncol = length(theta_target)))
+    q = data.frame(matrix(nrow = nrow(item),
+                          ncol = length(theta_target)))
+    ii = data.frame(matrix(nrow = nrow(item),
+                           ncol = length(theta_target)))
+    theta_target = theta_target[order(theta_target)]
+    colnames(ii) = theta_target
+    rownames(ii) = paste0("item", 1:nrow(item))
+    temp = NULL
+    for (i in 1:nrow(item)) {
+      temp = item[i, ]
+      for (j in 1:length(theta_target)) {
+        p[i, j] =  exp(temp$a *(theta_target[j] - temp$b))/(1 + exp(temp$a *(theta_target[j] - temp$b)))
+        q[i, j] = 1-(exp(temp$a *(theta_target[j] - temp$b))/(1 + exp(temp$a *(theta_target[j] - temp$b))))
+
+        ii[i,j] = temp$a^2 * p[i,j] *q[i,j]
+      }
+    }
+
+    ii$item =rownames(ii)
+    ii = ii[, c(ncol(ii), 1:(ncol(ii)-1))]
+
+    ii_long = stats::reshape(ii,
+                             idvar = "item",
+                             direction = "long",
+                             varying = list(2:ncol(ii)),
+                             v.names = "info",
+                             timevar = "theta_target",
+                             times = names(ii)[-1])
+
+
+    max_data = stats::aggregate(info ~ item + theta_target,
+                                data = ii_long, max)
+
+    max_data =  max_data[order(as.numeric(max_data$theta_target)), ]
+
+    temp = NULL
+    max_info = NULL
+
+
+    for(i in 1:length(unique(max_data$theta_target))) {
+      temp1 = max_data[which(max_data$info == max(max_data$info)), ]
+      max_data = max_data[which(max_data$item != temp1$item & max_data$theta_target != temp1$theta_target), ]
+      max_info = rbind(max_info, temp1)
+    }
+
+max_info$theta_target = as.numeric(max_info$theta_target)
+for (i in 2:ncol(max_info)) {
+  max_info[, i] = round(max_info[, i], 2)
+}
+max_info = max_info[order(max_info$theta_target), ]
+
+colnames(max_info)[2:3] = c("theta target", "IIF")
+
+max_info %>%
+  kable(row.names = FALSE) %>%
+  kable_styling("hover", full_width = TRUE)    
+```
+# Metodo 
+
+## Studio di simulazione
+
+
+Classica vs. Cluster vs. Gruppi vs. Random
+
+<div style="float: left; width: 50%;">
+1000 Soggetti: 
+
+- ${\displaystyle {\mathcal {N}}\{0,1\}}$
+
+- $Beta(1, 100)$ (trasformata linearmente per ottenere valori negativi)
+
+- ${\displaystyle {\mathcal {U}}\{-3,3\}}$
+
+</div>
+
+<div style="float: right; width: 50%;">
+
+100 Item:
+
+$b = 	{\displaystyle {\mathcal {U}}\{-3,3\}}$
+
+$a = 	{\displaystyle {\mathcal {U}}\{.40,2\}}$
+</div>
+
+
+<div style="float: left; width: 100%;">
+
+Obiettivo $\rightarrow$ creare forme brevi per ridurre da 100 item a 90, 70, 50, 30, 10 item
+
+La random estrae 10 combinazioni di item per ogni numerosità
+
+</div>
+
+## Il tratto latente
+
+## Il tratto latente
+
+```{r,  out.width="60%", fig.align='center'}
+set.seed(999)
+N <- 1000 # number of persons
+true_theta = rnorm(N, mean=0, sd=1)
+
+cluster = kmeans(matrix(true_theta, ncol =1), centers = 10)
+data = data.frame(value = true_theta, lab = rep("x", length(true_theta)))
+clusters = data.frame(cluster = cluster$centers[,1][order(cluster$centers[,1])], 
+                      end = dnorm(cluster$centers[,1][order(cluster$centers[,1])], 
+                                   mean(true_theta), 
+                                   sd(true_theta)), 
+                      distribution = "Normale")
+groups =  seq(min(true_theta), max(true_theta),
+                length =10)
+group_norm = data.frame(groups = groups, 
+                      end = dnorm(groups, 
+                                  mean(true_theta), 
+                                  sd(true_theta)), 
+                   distribution = "Normale")
+data$distribution = "Normale"
+
+# ggplot(data, 
+#        aes(x= true_theta)) + geom_density() +  ylim(-0.10, 0.5) + theme_minimal() +
+#   geom_segment(data = clusters, 
+#                aes(x =cluster, y = 0.02, 
+#                    xend = cluster, 
+#                    yend = -0.05, 
+#                    linetype = "Cluster")) + 
+#   geom_segment(aes(x=clusters$cluster[1],xend=clusters$cluster[nrow(clusters)],
+#                    y=-0.03,yend=-0.03)) + 
+#   geom_segment(data = group_norm, 
+#                aes(x =groups, y =-0.04, 
+#                    xend = groups, 
+#                    yend = -0.10, 
+#                    linetype = "Guided")) + 
+#   geom_segment(aes(x=group_norm$groups[1],xend=group_norm$groups[nrow(group_norm)],
+#                    y=-0.07,yend=-0.07, linetype = "Guided")) + ggtitle("Normale") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+#                                                                                                            legend.title = element_blank(), 
+#                                                                                                            axis.title.y = element_blank(), 
+#                                                                                                                    axis.title.x = element_text(size = 28), 
+#                                                                                                            axis.text = element_text(22),
+#                                                                                                            legend.text = element_text(size = 28)) + 
+#    xlab(expression(theta))
+```
+
+
+
+```{r, fig.align='center'}
+
+
+set.seed(999)
+# moments <- c(mean = -2,variance = 1,skewness = 0.71, kurtosis = 4)
+# true_theta_sk <- c(rpearson(1000, moments = moments))
+# true_theta_sk = (true_theta_sk*0.5396) -.9227
+
+true_theta_sk = (rbeta(1000, 1, 100)*100) - 3
+
+data_sk = data.frame(value = true_theta_sk, lab = rep("x", length(true_theta_sk)))
+cluster_sk = kmeans(matrix(true_theta_sk, ncol =1), centers = 10)
+clusters_sk = data.frame(cluster = cluster_sk$centers[,1][order(cluster_sk$centers[,1])], 
+                      end = dnorm(cluster_sk$centers[,1][order(cluster_sk$centers[,1])], 
+                                  mean(true_theta_sk), 
+                                  sd(true_theta_sk)), 
+                      distribution = "Skewed")
+groups = seq(min(true_theta_sk), max(true_theta_sk),
+                length =10)
+group_sk = data.frame(groups = groups, 
+                   end = dnorm(groups, 
+                               mean(true_theta_sk), 
+                               sd(true_theta_sk)), 
+                   distribution = "Skewed")
+
+data_sk$distribution = "Skewed"
+
+
+# ggplot(data_sk, 
+#        aes(x= true_theta_sk)) + geom_density() +  ylim(-0.10, 1) + theme_minimal() +
+#   geom_segment(data = clusters_sk, 
+#                aes(x =cluster, y =0.02, 
+#                    xend = cluster, 
+#                    yend = -0.05, linetype = "Cluster")) + 
+#   geom_segment(aes(x=clusters_sk$cluster[1],xend=clusters_sk$cluster[nrow(clusters_sk)],
+#                    y=-0.01,yend=-0.01)) + 
+#   geom_segment(data = group_sk, 
+#                aes(x =groups, y =-0.04, 
+#                    xend = groups, 
+#                    yend = -0.10, linetype="Guided")) + 
+#   geom_segment(aes(x=group_sk$groups[1],xend=group_sk$groups[nrow(group_sk)],
+#                    y=-0.07,yend=-0.07,linetype="Guided")) + ggtitle("Skewness") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+#                                                                                                            legend.title = element_blank(), 
+#                                                                                                            axis.title.y = element_blank(), 
+#                                                                                                                    axis.title.x = element_text(size = 28), 
+#                                                                                                            axis.text = element_text(22),
+#                                                                                                            legend.text = element_text(size = 28)) + 
+#    xlab(expression(theta))
+
+set.seed(999)
+true_theta_uni <- c(runif(1000, min = -3, max = 3))
+cluster_uni = kmeans(matrix(true_theta_uni, ncol =1), centers = 10)
+data_uni = data.frame(value = true_theta_uni, lab = rep("x", length(true_theta_uni)))
+clusters_uni = data.frame(cluster = cluster_uni$centers[,1][order(cluster_uni$centers[,1])], 
+                          end = dnorm(cluster_uni$centers[,1][order(cluster_uni$centers[,1])], 
+                                      mean(true_theta_uni), 
+                                      sd(true_theta_uni)), 
+                          distribution = "Uniforme")
+groups = seq(min(true_theta_uni), max(true_theta_uni),
+                length =10)
+group_uni = data.frame(groups = groups, 
+                       end = dnorm(groups, 
+                                   mean(true_theta_uni), 
+                                   sd(true_theta_uni)), 
+                          distribution = "Uniforme")
+data_uni$distribution = "Uniforme"
+
+
+# ggplot(data_uni, 
+#        aes(x= true_theta_uni)) + geom_density() +  ylim(-0.10, 1) + theme_minimal() +
+#   geom_segment(data = clusters_uni, 
+#                aes(x =cluster, y =0.02, 
+#                    xend = cluster, 
+#                    yend = -0.05, 
+#                linetype = "Cluster")) + 
+#   geom_segment(aes(x=clusters_uni$cluster[1],xend=clusters_uni$cluster[nrow(clusters_uni)],
+#                    y=-0.03,yend=-0.03, 
+#                linetype = "Cluster")) + 
+#   geom_segment(data = group_uni, 
+#                aes(x =groups, y =-0.04, 
+#                    xend = groups, 
+#                    yend = -0.10, 
+#                    linetype = "Guided")) + 
+#   geom_segment(aes(x=group_uni$groups[1],xend=group_uni$groups[nrow(group_uni)],
+#                    y=-0.07,yend=-0.07,  
+#                    linetype = "Guided"))  + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+#                                                                                                            legend.title = element_blank(), 
+#                                                                                                            axis.title.y = element_blank(), 
+#                                                                                                                    axis.title.x = element_text(size = 28), 
+#                                                                                                            axis.text = element_text(22),
+#                                                                                                            legend.text = element_text(size = 28)) + 
+#    xlab(expression(theta)) + ggtitle("Uniforme")
+
+
+tif_data = rbind(data, data_sk, data_uni)
+segment = rbind(clusters, 
+                clusters_sk, 
+                clusters_uni)
+group = rbind(group_norm, 
+                group_sk, 
+                group_uni)
+
+ggplot(tif_data, 
+       aes(x= value)) + geom_density() + geom_segment(data = segment, 
+               aes(x =cluster, y =0.02, 
+                   xend = cluster, 
+                   yend = -0.05, 
+               linetype = "Cluster")) + 
+  geom_segment(aes(x=segment$cluster[1],xend=segment$cluster[nrow(segment)],
+                   y=-0.03,yend=-0.03, 
+               linetype = "Cluster")) + 
+  geom_segment(data = group, 
+               aes(x =groups, y =-0.04, 
+                   xend = groups, 
+                   yend = -0.10, 
+                   linetype = "Guided")) + 
+  geom_segment(aes(x=group$groups[1],xend=group$groups[nrow(group)],
+                   y=-0.07,yend=-0.07,  
+                   linetype = "Guided")) + facet_wrap(~distribution) + theme_minimal() + theme(legend.position = "top", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           axis.title.y = element_blank(), 
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28), 
+                                                                              strip.text.x = element_text(size = 18), legend.spacing.x = unit(1.0, 'cm'),
+   legend.key.size = unit(0.5,"cm")) + 
+   xlab(expression(theta))
+
+
+
+```
+
+
+## Information
+
+```{r, fig.show='hold', fig.align="center"}
+rm(list = ls())
+load("UNIsummary.RData")
+load("SKsummary.RData")
+load("NORMALsummary.RData")
+set.seed(666)
+
+all_small_norm = all_data_theta[!all_data_theta$selection %in%"guidedTheta", ]
+all_small_norm$distribution = "Normale"
+all_small_norm$selection  = plyr::revalue(all_small_norm$selection, 
+                                    c("cluster_theta" = "Cluster", 
+                                      "guidedNew" = "Gruppi", 
+                                      "random" = "Random", 
+                                      "smart_theta" = "Classica"))
+all_small_sk = all_data_sk_theta[!all_data_sk_theta$selection %in%"rangeSK", ]
+all_small_sk$selection  = plyr::revalue(all_small_sk$selection, 
+                                    c("clustersk" = "Cluster", 
+                                      "range_newSK" = "Gruppi", 
+                                      "random" = "Random", 
+                                      "smart" = "Classica"))
+all_small_sk$distribution = "Skewed" 
+all_small_uni = all_data_uni_theta[!all_data_uni_theta$selection %in%"rangeuni", ]
+all_small_uni$selection  = plyr::revalue(all_small_uni$selection, 
+                                    c("clusteruni" = "Cluster", 
+                                      "range_newuni" = "Gruppi", 
+                                      "random" = "Random", 
+                                      "smart" = "Classica"))
+all_small_uni$num_item = gsub("number", "", all_small_uni$num_item)
+all_small_uni$distribution = "Uniforme" 
+
+all_small = rbind(all_small_norm, all_small_sk, all_small_uni)
+all_small$num_item = gsub("number", "", all_small$num_item)
+dummy = data.frame(all_small[all_small$num_item %in% "all", ])
+
+ggplot(all_small[!all_small$num_item %in%"all", ],
+       aes(x=as.factor(item_temp), y=mean_info,
+           group=selection, color=selection)) + theme_minimal() +
+  geom_line(aes(linetype = selection), lwd = 1.5) +
+  geom_point(aes(shape=selection))+
+  geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info),
+                width=.2,
+                position=position_dodge(0.05)) +
+  theme(axis.text.x = element_text(size = 20), 
+        legend.position = "top", 
+        legend.title = element_blank(), 
+        axis.title.x = element_blank(), 
+        legend.text = element_text(size = 20)) + ylab("Informazione") +
+  scale_x_discrete(labels =  unique(all_small[!all_small$num_item %in%"all", "num_item"])) +
+  geom_hline(data = dummy, aes(yintercept = mean_info)) + ggtitle("Informazione") + facet_wrap(~distribution)
+
+
+
+
+```
+
+
+
+## Reliability
+
+```{r, fig.align="center"}
+ggplot(all_small[!all_small$num_item %in%"all", ], 
+       aes(x=as.factor(item_temp), y=mean_rel, 
+           group=selection, color=selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1) + theme_minimal()+
+  geom_point(aes(shape=selection), size =2)+
+  geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                width=.2,
+                position=position_dodge(0.05)) + 
+  theme(axis.text.x = element_text(size = 22), 
+        legend.position = "top", 
+        legend.title = element_blank(), 
+        axis.title.x = element_blank(), 
+        legend.text = element_text(size = 20)) + ylab("Reliability") + 
+  scale_x_discrete(labels = unique(all_small[!all_small$num_item %in%"all", "num_item"])) + 
+  geom_hline(data = dummy, aes(yintercept = mean_rel)) + ylim(0,1)  + facet_wrap(~distribution)
+
+
+```
+
+
+
+
+## Root Mean Square Error
+
+```{r}
+uni_rmse_obs_theta_mean$distribution = "Uniforme"
+sk_rmse_obs_theta_mean$distribution = "Skewed"
+normal_rmse_obs_theta_mean$distribution = "Normale"
+
+rmse_obs = rbind(uni_rmse_obs_theta_mean, sk_rmse_obs_theta_mean, 
+                 normal_rmse_obs_theta_mean)
+rmse_obs = rmse_obs[!rmse_obs$selection %in% "range", ]
+rmse_obs$selection = plyr::revalue(rmse_obs$selection, 
+                                  c("cluster" = "Cluster", 
+                                    "random" = "Random", 
+                                    "range_new" = "Gruppi", 
+                                    "smart" = "Classica"))
+
+rmse_obs$num_item = gsub("number", "", rmse_obs$num_item)
+ggplot(rmse_obs,
+       aes(x=as.factor(num_item), y = (rmse), group = selection,
+           color = selection)) + theme_minimal() +
+  geom_line(aes(linetype = selection), lwd = 1.3) +
+  theme(axis.text.x = element_text(size = 20) ,
+        legend.position = "top", 
+        legend.title = element_blank(), 
+        axis.title.x = element_blank(), 
+        legend.text = element_text(size = 20)) + ylab("RMSE") + facet_wrap(~distribution) 
+
+```
+
+
+## RMSE gruppi di $\theta$
+
+```{r, out.height="120%"}
+
+sk_groups = sk_rmse_groups_theta_mean[sk_rmse_groups_theta_mean$num_item %in% c("number10", "number50", "number90"), ]
+
+uni_groups = uni_rmse_groups_theta_mean[uni_rmse_groups_theta_mean$num_item %in% c("number10", "number50", "number90"), ]
+
+normal_groups = normal_rmse_groups_theta_mean[normal_rmse_groups_theta_mean$num_item %in% c("number10", "number50", "number90"), ]
+
+sk_groups = sk_groups[!sk_groups$selection %in% "range", ]
+sk_groups$distr = "Skewed"
+uni_groups = uni_groups[!uni_groups$selection %in% "range", ]
+uni_groups$distr = "Uniform"
+norm_groups = normal_groups[!normal_groups$selection %in% "range", ]
+norm_groups$distr = "Normal"
+
+rmse_groups = rbind(uni_groups, sk_groups, norm_groups)
+rmse_groups$group = plyr::revalue(rmse_groups$group, 
+                                  c("a" = "< -2.5", 
+                                    "b" = "[-2.5,-1.25]", 
+                                    "c" = "(-1.25,0]", 
+                                    "d" = "(0,1.25]", 
+                                    "e" = "(1.25,2.5]", 
+                                    "f" = "> 2.5"))
+rmse_groups$group = factor(rmse_groups$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+rmse_groups$selection = plyr::revalue(rmse_groups$selection, 
+                                      c("cluster" = "Cluster", 
+                                        "random" = "Random", 
+                                        "range_new" = "Gruppi", 
+                                        "smart" = "Classica"))
+
+ggplot(rmse_groups, 
+       aes(x=group, y = rmse, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) +  theme_minimal() +
+  theme(legend.position = "top") +
+theme(axis.text.x = element_text(angle = 25, vjust = 0.5, hjust=1), 
+        legend.title = element_blank(), 
+        axis.title.x = element_blank(), 
+        strip.text.x = element_text(size = 10), 
+      strip.text.y = element_text(angle = 45),
+      legend.text = element_text(size=20)) + 
+  facet_grid(distr~num_item) 
+
+```
+
+
+
+# Conclusioni
+
+

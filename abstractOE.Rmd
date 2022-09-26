@@ -1,0 +1,18 @@
+---
+title: "Dalla parte degli item"
+author: "Ottavia M. Epifania"
+subtitle: Georg Rasch e i modelli dell'Item Response Theory
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In questa presentazione, verranno affrontati i principali modelli dell'Item Response Theory (IRT) per dati sia dicotomici sia politomici. 
+Si partirà dalle intuizioni di Georg Rasch che hanno portato alla formulazione dell'omonimo modello, secondo cui la probabilità di risposta corretta dipende esclusivamente dalle caratteristiche del soggetto, espresse dalla sua abilità $\theta$, e da quelle dell'item, espresse dalla sua difficoltà $b$. 
+Verranno poi presentati i modelli IRT che prevedono l'intervento di altre caratteristiche dell'item oltre alla difficoltà nell'influenzare il rapporto tra il tratto latente e la probabilità di risposta corretta. 
+Infine, verranno molte sinteticamente presentati i modelli dell'IRT per i dati politomici. 
+Il codice usato per la presentazione, per la simulazione dei dati e per la creazione della shiny app è disponibile sulla mia pagina [GitHub](https://github.com/OttaviaE/irt)

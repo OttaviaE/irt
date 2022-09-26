@@ -1,0 +1,128 @@
+\documentclass[12pt, a4paper, titilepage]{article}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\graphicspath{{C:/Users/huawei/Desktop/images/}} 
+\usepackage{setspace}
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{apacite}
+\usepackage{titlesec}
+\usepackage{dcolumn}
+\usepackage{lscape}
+\usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{times}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{dcolumn}
+\usepackage{siunitx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{lineno}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage{listings}
+\usepackage{regexpatch}
+\usepackage{multicol}
+\captionsetup[table]{format=plain, labelsep=newline, justification=RaggedRight, labelfont=bf, textfont=it,  singlelinecheck=off}
+\lstset{language=R,
+	basicstyle=\small\ttfamily,
+	stringstyle=\color{black},
+	%otherkeywords={0,1,2,3,4,5,6,7,8,9},
+	morekeywords={TRUE,FALSE, glmer, lmer},
+	deletekeywords={data,frame,length,as,character},
+	keywordstyle=\color{black}\bfseries,
+	commentstyle=\color{black},
+}
+
+\raggedbottom
+\titleformat*{\section}{\bfseries\centering}
+\titleformat*{\subsection}{\bfseries\flushleft}
+\titleformat*{\subsubsection}{\bfseries\itshape\flushleft}
+\titleformat*{\paragraph}{\bfseries}
+\titleformat*{\subparagraph}{\large\bfseries}
+
+\let\cite\shortcite
+
+%\newcolumntype{d}[1]{D{.}{\cdot}{#1} }
+%\newcolumntype{.}{D{.}{.}{-1}}
+
+\newcolumntype{d}[1]{D{.}{.}{#1}}
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+
+\title{Less is more: An Item Response Theory approach for developing short forms}
+\author{Pasquale Anselmi, Egidio Robusto, Ottavia Epifania}
+\date{
+%
+Department of Philosophy, Sociology, Education, and Applied Psychology, University of Padova
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{IRT APPROACH FOR SHORT FORMS}
+\rfoot{}
+\renewcommand{\headrulewidth}{0pt}
+
+\renewcommand\baselinestretch{2}
+%\linenumbers
+\begin{document}
+%
+\vspace*{10mm}
+\begin{center}
+	\begin{LARGE}
+
+	\end{LARGE}
+	
+	\vspace{5mm}
+	\begin{large}
+		Pasquale Anselmi, Egidio Robusto, Ottavia Epifania \\ 
+		Department of Philosophy, Sociology, Education, and Applied Psychology, University of Padova
+	\end{large}
+\end{center}
+\vspace{15mm}
+\begin{center}
+	\textbf{Author Note}
+\end{center}
+\begin{small}
+
+Pasquale Anselmi \includegraphics[width=0.06\linewidth]{orcid.png} https://orcid.org/0000-0003-2982-7178 
+
+
+Egidio Robusto \includegraphics[width=0.06\linewidth]{orcid.png} https://orcid.org/0000-0002-7583-2587
+
+Ottavia M. Epifania \includegraphics[width=0.06\linewidth]{orcid.png} https://orcid.org/0000-0001-8552-568X
+
+The authors have no conflict of interest to disclose.
+
+Correspondence concerning this Article should be addressed to: %Ottavia M. Epifania, Department of Philosophy, Sociology, Education, and Applied Psychology, Via Venezia 14, Padova, Italy.
+%E-Mail: ottavia.epifania@unipd.it \\
+\end{small}
+
+
+\vfill
+
+%\end{document}
+
+\newpage
+
+
+
+\begin{abstract}
+	
+
+\textbf{Keywords:}  Item Response Theory, 2PL, Short Form
+\end{abstract}
+
+\newpage
+\begin{center}
+\textbf{Mixing the implicit: A Linear Mixed-Effects Models approach for a Rasch analysis of the Implicit Association Test and the Single Category Implicit Association Test}
+\end{center}
+
+\end{document}

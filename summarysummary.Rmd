@@ -1,0 +1,1452 @@
+---
+title: "Sumamry Summary"
+author: "Ottavia M. Epifania"
+date: "15/6/2021"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      tidy= TRUE,
+                      tidy.opts = list(width.cutoff=50),  
+                      collapse = TRUE)
+library(gridExtra)
+library(ggplot2)
+library(TAM)
+library(psych)
+library(sn)
+library(sirt)
+library(DescTools)
+set.seed(666)
+# per dividere il tratto latente ---- 
+cut_borders <- function(x){
+  pattern <- "(\\(|\\[)(-*[0-9]+\\.*[0-9]*),(-*[0-9]+\\.*[0-9]*)(\\)|\\])"
+  
+  start <- as.numeric(gsub(pattern,"\\2", x))
+  end <- as.numeric(gsub(pattern,"\\3", x))
+  
+  data.frame(start, end)
+}
+
+load("summaryUNI.RData")
+load("SKsummary.RData")
+load("summaryNormal.RData")
+load("SKsummaryEX.RData")
+```
+
+## Distribuzione normale 
+
+```{r, output.width='50%'}
+set.seed(666)
+N <- 1000 # number of persons
+b <- runif(100, -3,3)
+a = c(runif(100, 0.4, 2))
+true_theta = rnorm(N, mean=0, sd=1)
+data <- sirt::sim.raschtype( true_theta, b=b, 
+                             fixed.a = a)
+
+
+diff_true <- matrix(cbind(1:length(b), 
+                         b), 
+                    ncol = 2)
+discr_true = array(c(rep(0, length(a)), a), 
+                   c(length(a),2,1), 
+          dimnames = list(paste0("I", 1:length(a)), 
+                          c("Cat0", "Cat1"), 
+                          "Dim01"))
+
+hist(true_theta, main = "Theta normale")
+```
+
+
+
+## Skewness 
+
+```{r, output.width='50%'}
+library("PearsonDS")
+set.seed(666)
+moments <- c(mean = -2,variance = 2,skewness = 1.71, kurtosis = 8)
+true_theta_sk <- c(rpearson(1000, moments = moments))
+true_theta_sk = (true_theta_sk*0.5396) -.9227
+hist(true_theta_sk)
+summary(true_theta_sk)
+b <- runif(100, -3,3)
+a = c(runif(100, 0.4, 2))
+data_sk <- sirt::sim.raschtype( true_theta_sk, b=b, 
+                                fixed.a = a)
+
+diff_true <- matrix(cbind(1:length(b), 
+                          b), 
+                    ncol = 2)
+discr_true <- array(c(rep(0, length(a)), a), 
+                    c(length(a),2,1), 
+                    dimnames = list(paste0("I", 1:length(a)), 
+                                    c("Cat0", "Cat1"), 
+                                    "Dim01"))
+hist(true_theta_sk, main = "Skewness estrema")
+
+```
+
+
+## Distribuzione uniforme
+
+```{r, output.width='50%'}
+set.seed(666)
+true_theta_uni <- c(runif(1000, min = -3, max = 3))
+b <- runif(100, -3,3)
+a = c(runif(100, 0.4, 2))
+diff_true <- matrix(cbind(1:length(b), 
+                          b), 
+                    ncol = 2)
+discr_true <- array(c(rep(0, length(a)), a), 
+                    c(length(a),2,1), 
+                    dimnames = list(paste0("I", 1:length(a)), 
+                                    c("Cat0", "Cat1"), 
+                                    "Dim01"))
+data_uni <- sirt::sim.raschtype( true_theta_uni, b=b, 
+                                fixed.a = a)
+
+hist(true_theta_uni, main = "Theta uniform")
+```
+
+
+## Stima del modello inziale
+
+Modello iniziale con tutti gli item stimato come (questo è vero per tutte le distribuzioni): 
+
+```{r, eval = FALSE, class.source = "bg-danger"}
+
+m2pl <- tam.mml(data, 
+                xsi.fixed = diff_true, 
+                    B = discr_true)
+```
+
+## Trovo i valori theta target 
+SUlla base dei theta osservati
+
+### Guided 
+
+```{r, eval = FALSE}
+ranges <- NULL
+groups <- NULL
+
+cut_value <- list()
+
+for (i in 1:(length(num_item))) {
+  ranges <- seq(min(true_theta), max(true_theta), 
+                length =num_item[i])
+  groups <- cut(ranges, num_item[i], include.lowest = TRUE)
+  cut_value[[i]] <- cut_borders(groups)
+  cut_value[[i]]$mean_theta <- rowMeans(cut_value[[i]])
+}
+```
+
+### Guided new
+
+```{r, eval = FALSE}
+cut_value <- list()
+# tengo solo la prima selezione di item 
+for (i in 1:length(num_item)) {
+  cut_value[[i]] =   seq(min(true_theta), max(true_theta),
+                         length =num_item[i])
+}
+
+```
+
+
+### Cluster 
+```{r, eval = FALSE}
+num_clusters <- num_item
+theta_mat <- matrix(true_theta, ncol = 1)
+info_start <- mean(IRT.informationCurves(m2pl, 
+                                         theta = seq(-3,3, length = 1000))$test_info_curve)
+# generate clusters
+
+cluster <- list() 
+
+for (i in 1:length(num_clusters)) {
+  cluster[[i]] <- kmeans(theta_mat, 
+                         centers = num_clusters[i])
+}
+```
+
+
+### Smart 
+
+Theta teorico tra -3 e 3
+
+```{r, eval = FALSE}
+data_info_smart <- data.frame(items = 1:(ncol(data)), 
+                              info = numeric((ncol(data))))
+
+for (i in 1:nrow(data_info_smart)) {
+  data_info_smart[i, "info"] <- mean(IRT.informationCurves(m2pl, 
+                                                          theta = seq(-3, 3, 
+                                                                      length = 1000), 
+                                                          iIndex = lab_item[i])$info_curves_item)
+  
+}
+
+# ora scrivi il codice per la procedura iterativa dove dato un certo numero di 
+# item, trova il massimo e mano a mano toglie quel'item 
+filtro <- list()
+data_temp <- list()
+for (i in 1:length((num_item))) {
+  filtro[[i]] <- data_info_smart[which(data_info_smart$info == max(data_info_smart$info)), ]
+  for (j in 1:(num_item[i]-1)) {
+    data_temp[[j]] <- data_info_smart[!data_info_smart$items %in% filtro[[i]]$items, ]
+    filtro[[i]] <- rbind(filtro[[i]], 
+                    data_temp[[j]][which(data_temp[[j]]$info == max(data_temp[[j]]$info)), ])
+  }
+  names(filtro)[[i]] <- paste("number", num_item[i], sep = "")
+  
+}
+```
+
+## Confronto intervalli $\theta$ con 10 item
+
+
+
+```{r}
+set.seed(666)
+N <- 1000 # number of persons
+b <- runif(100, -3,3)
+a = c(runif(100, 0.4, 2))
+true_theta = rnorm(N, mean=0, sd=1)
+
+data_normal = data.frame(value = true_theta, 
+                         lab = rep("x", length(true_theta)))
+
+cluster = kmeans(matrix(seq(-3,3, length.out = 1000), ncol =1), centers = 10)
+clusters = data.frame(cluster = cluster$centers[,1][order(cluster$centers[,1])], 
+                      end = dnorm(cluster$centers[,1][order(cluster$centers[,1])], 
+                                   mean(true_theta), 
+                                   sd(true_theta)))
+groups = (seq(-3,3, length.out = 10))
+group = data.frame(groups = groups, 
+                      end = dnorm(groups, 
+                                  mean(true_theta), 
+                                  sd(true_theta)))
+
+ggplot(data_normal, 
+       aes(x= true_theta)) + geom_density() +  ylim(-0.10, 0.5) + 
+  geom_segment(data = clusters, 
+               aes(x =cluster, y =-0.02, 
+                   xend = cluster, 
+                   yend = -0.05)) + 
+  geom_segment(aes(x=clusters$cluster[1],xend=clusters$cluster[nrow(clusters)],
+                   y=-0.03,yend=-0.03)) + 
+  geom_segment(data = group, 
+               aes(x =groups, y =-0.05, 
+                   xend = groups, 
+                   yend = -0.07), linetype = "dashed") + 
+  geom_segment(aes(x=group$groups[1],xend=group$groups[nrow(group)],
+                   y=-0.06,yend=-0.06), linetype = "dashed") + ggtitle("Normale")
+
+## Skewnees
+library("PearsonDS")
+set.seed(666)
+moments <- c(mean = -2,variance = 2,skewness = 1.71, kurtosis = 8)
+true_theta_sk <- c(rpearson(1000, moments = moments))
+true_theta_sk = (true_theta_sk*0.5396) -.9227
+
+data_sk = data.frame(value = true_theta_sk, 
+                         lab = rep("x", length(true_theta_sk)))
+
+cluster_sk= kmeans(matrix(seq(-3,3, length.out = 1000), ncol =1), centers = 10)
+clusters_sk = data.frame(cluster_sk= cluster$centers[,1][order(cluster$centers[,1])], 
+                      end = dnorm(cluster$centers[,1][order(cluster$centers[,1])], 
+                                   mean(true_theta_sk), 
+                                   sd(true_theta_sk)))
+groups_sk = (seq(-3,3, length.out = 10))
+group_sk= data.frame(groups_sk = groups_sk, 
+                      end = dnorm(groups_sk, 
+                                  mean(true_theta_sk), 
+                                  sd(true_theta_sk)))
+
+ggplot(data_sk, 
+       aes(x= true_theta_sk)) + geom_density() +  ylim(-0.10, 1) + 
+  geom_segment(data = clusters_sk, 
+               aes(x =cluster_sk, y =-0.02, 
+                   xend = cluster_sk, 
+                   yend = -0.05)) + 
+  geom_segment(aes(x=clusters_sk$cluster_sk[1],xend=clusters_sk$cluster_sk[nrow(clusters_sk)],
+                   y=-0.03,yend=-0.03)) + 
+  geom_segment(data = group, 
+               aes(x =groups_sk, y =-0.05, 
+                   xend = groups_sk, 
+                   yend = -0.07), linetype = "dashed") + 
+  geom_segment(aes(x=group_sk$groups_sk[1],xend=group_sk$groups_sk[nrow(group_sk)],
+                   y=-0.06,yend=-0.06), linetype = "dashed") + ggtitle("Skewness")
+
+## Uniform
+set.seed(666)
+true_theta_uni <- c(runif(1000, min = -3, max = 3))
+
+data_uni = data.frame(value = true_theta_uni, 
+                         lab = rep("x", length(true_theta_uni)))
+
+cluster_uni= kmeans(matrix(seq(-3,3, length.out = 1000), ncol =1), centers = 10)
+clusters_uni = data.frame(cluster_uni= cluster$centers[,1][order(cluster$centers[,1])], 
+                      end = dnorm(cluster$centers[,1][order(cluster$centers[,1])], 
+                                   mean(true_theta_uni), 
+                                   sd(true_theta_uni)))
+groups_uni = (seq(-3,3, length.out = 10))
+group_uni= data.frame(groups_uni = groups_uni, 
+                      end = dnorm(groups_uni, 
+                                  mean(true_theta_uni), 
+                                  sd(true_theta_uni)))
+
+ggplot(data_uni, 
+       aes(x= true_theta_uni)) + geom_density() +  ylim(-0.10, 0.5) + 
+  geom_segment(data = clusters_uni, 
+               aes(x =cluster_uni, y =-0.02, 
+                   xend = cluster_uni, 
+                   yend = -0.05)) + 
+  geom_segment(aes(x=clusters_uni$cluster_uni[1],xend=clusters_uni$cluster_uni[nrow(clusters_uni)],
+                   y=-0.03,yend=-0.03)) + 
+  geom_segment(data = group, 
+               aes(x =groups_uni, y =-0.05, 
+                   xend = groups_uni, 
+                   yend = -0.07), linetype = "dashed") + 
+  geom_segment(aes(x=group_uni$groups_uni[1],xend=group_uni$groups_uni[nrow(group_uni)],
+                   y=-0.06,yend=-0.06), linetype = "dashed") + ggtitle("Skewness")
+
+```
+
+
+## Calcolo informatività per ogni theta target
+
+
+```{r, eval = FALSE}
+info_test <- NULL
+temp <- list()
+value <- list()
+temp_data <- NULL
+info_data <- NULL
+
+for (j in 1:length(cut_value)) { # contiene i theta target
+  value[[j]] <- cut_value[[j]][1:nrow(cut_value[[j]]), ] 
+  
+  for(i in 1:length(lab_item)) { # per ognuno dei 100 item viene calcolata l'info
+    for(m in 1:nrow(value[[j]])) { # per ogni theta target
+      
+      temp_data <- data.frame(theta_target = 
+                                IRT.informationCurves(m2pl, 
+                                                      theta = value[[j]][m,
+                                                                                "mean_theta"], 
+                                                      iIndex =
+                                                                     lab_item[i])$theta,
+                              test_info = 
+                                mean(IRT.informationCurves(m2pl, 
+                                                                theta = value[[j]][m,
+                                                                                   "mean_theta"], 
+                                                                iIndex =
+                                                                  lab_item[i])$test_info_curve),
+                              item_info = 
+                                mean(colSums(IRT.informationCurves(m2pl, 
+                                                                theta = value[[j]][m,
+                                                                                   "mean_theta"], 
+                                                                iIndex =
+                                                                  lab_item[i])$info_curves_item)),
+                              item = lab_item[i],
+                              num_item = paste("number", nrow(value[[j]]), sep = ""))
+      
+info_data <- rbind(info_data, temp_data) # data frame dove per ogni theta target si ha 
+    }                                           # l'info di ogni item
+  }
+}
+```
+
+## Calcolo info massima di ogni item per uno specifico theta target 
+
+```{r, eval = FALSE}
+
+temp_data <- NULL
+temp_maxrange <- NULL
+temp <- NULL
+max_temp <- NULL
+
+for (i in 1:length(unique(info_data$num_item))){
+  temp_data <- info_data[info_data$num_item %in% unique(info_data$num_item)[i], ]
+  temp_maxrange <- aggregate(test_info ~ item + theta_target, 
+                             data = temp_data, max)
+  temp_maxrange$range_name <- unique(temp_data$num_item) # trova l'item maggiormente informativo 
+                                                  # per ogni theta target
+  for (j in 1:length(unique(temp_maxrange$theta_target))) { # toglie l'item e il theta e ricomincia da capo 
+    temp <- temp_maxrange[which(temp_maxrange$test_info == max(temp_maxrange$test_info)), ]
+    temp_maxrange <- temp_maxrange[which(temp_maxrange$item != temp$item & 
+                                           temp_maxrange$theta_target != temp$theta_target), ]
+    max_temp <-rbind(max_temp, temp)
+    
+  }
+}
+
+
+```
+
+## Stimo in maniera ricorsiva il modello selezionando gli item trovati al punto precedente
+
+### Parametri degli item liberi 
+
+```{r, eval = FALSE}
+ out_range <- list()
+  model_out_range <- list()
+  info_out_range <- list()
+  
+  for (i in 1:length(unique(max_temp$range_name))) {
+    out_range[[i]] <- data[, c(max_temp[max_temp$range_name %in%unique(max_temp$range_name)[i], 
+                                        "item"])]
+    model_out_range[[i]] <- tam.mml.2pl(out_range[[i]]) # stimo il modello
+    info_out_range[[i]] <- IRT.informationCurves(model_out_range[[i]], # calcolo info del modello
+                                                 theta = seq(-3, 3, length = 1000))
+    names(info_out_range)[[i]] <- unique(max_temp$range_name)[i]
+  }
+  
+```
+
+### Parametri degli item vincolati 
+
+```{r, eval = FALSE}
+ out_range_theta <- list()
+  model_out_range_theta <- list()
+  info_out_range_theta <- list()
+  
+  for (i in 1:length(unique(max_temp$range_name))) {
+    out_range_theta[[i]] <- data[, c(max_temp[max_temp$range_name %in%unique(max_temp$range_name)[i], 
+                                              "item"])]
+    model_out_range_theta[[i]] <- tam.mml(out_range_theta[[i]], # stimo il modello tenendo 
+                                              # gli item fissi ma selezionando 
+                                          # solo i parametri degli item selezionati
+                                              xsi.fixed =
+                                            cbind(1:ncol(out_range_theta[[i]]),
+                                                  diff_true[as.integer(gsub("I00|I0|I", 
+                                                                            '', 
+                                                            colnames(out_range_theta[[i]]))), 2]), 
+                                              B = 
+                                            array(c(rep(0, ncol(out_range_theta[[i]])), 
+                                                     discr_true[,2,][as.integer(gsub("I00|I0|I", 
+                                                                                "",
+                                                                    colnames(out_range_theta[[i]])))]), 
+                                                   c(ncol(out_range_theta[[i]]),2,1), 
+                                                   dimnames = list(colnames(out_range_theta[[i]]), 
+                                                                   c("Cat0", "Cat1"), 
+                                                                   "Dim01")))
+    info_out_range_theta[[i]] <- IRT.informationCurves(model_out_range_theta[[i]], 
+                                                       theta = seq(-3, 3, length = 1000))
+    names(info_out_range_theta)[[i]] <- unique(max_temp$range_name)[i]
+  }
+```
+
+
+## Calcolo info nuovi modelli e reliability
+
+(Stesso codice per i modelli stimati tenendo fissi i parametri degli item)
+```{r,eval=FALSE}
+  info_summary_range <- NULL
+  temp <- NULL
+  for(i in 1:length(info_out_range)) {
+    temp <- data.frame(info_test = mean(info_out_range[[i]]$test_info_curve), 
+                       
+                       
+                       range_name = names(info_out_range)[[i]], 
+                       item = paste(colnames(out_range[[i]]), collapse = ","))
+    
+    info_summary_range <- rbind(info_summary_range, 
+                                temp)
+  }
+  
+  info_summary_range$rel <- 1 - (1/sqrt(info_summary_range$info_test))^2
+  info_summary_range <-  rbind(info_summary_range, 
+                               data.frame(info_test = sum(info_start),
+                                          range_name = "all", 
+                                          item = "all", 
+                                          rel = 1 - (1/sqrt(info_start))^2))
+  info_summary_range$selection <- "guided"
+```
+ 
+## TIF con tutti gli item
+
+```{r, echo = FALSE, eval = TRUE}
+tif_all_normal <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                           theta = seq(-3, 3, 
+                                                                       length = 1000))$theta,
+                             info = IRT.informationCurves(m2pl, 
+                                                          theta = seq(-3, 3, 
+                                                                      length = 1000))$test_info_curve, 
+                             num_item = "all", 
+                             sel = "start", 
+                             distributio = "normal")
+
+tif_all_sk <- data.frame(theta = IRT.informationCurves(m2pl_sk, 
+                                                           theta = seq(-3, 3, 
+                                                                       length = 1000))$theta,
+                             info = IRT.informationCurves(m2pl_sk, 
+                                                          theta = seq(-3, 3, 
+                                                                      length = 1000))$test_info_curve, 
+                             num_item = "all", 
+                             sel = "start", 
+                         distributio = "sk")
+
+tif_all_sk_ex <- data.frame(theta = IRT.informationCurves(m2pl_sk_ex, 
+                                                           theta = seq(-3, 3, 
+                                                                       length = 1000))$theta,
+                             info = IRT.informationCurves(m2pl_sk_ex, 
+                                                          theta = seq(-3, 3, 
+                                                                      length = 1000))$test_info_curve, 
+                             num_item = "all", 
+                             sel = "start", 
+                         distributio = "skEX")
+
+
+tif_all_uni <- data.frame(theta = IRT.informationCurves(m2pl_uni, 
+                                                       theta = seq(-3, 3, 
+                                                                   length = 1000))$theta,
+                         info = IRT.informationCurves(m2pl_uni, 
+                                                      theta = seq(-3, 3, 
+                                                                  length = 1000))$test_info_curve, 
+                         num_item = "all", 
+                         sel = "start", 
+                         distributio = "uni")
+
+tif_all <- rbind(tif_all_normal, 
+                 tif_all_sk, tif_all_uni, 
+                 tif_all_sk_ex)
+
+
+ggplot(tif_all, 
+       aes(x = theta, y = info, group = distributio, 
+           col = distributio)) + 
+  geom_line(aes(linetype = distributio), lwd = 2) + 
+  labs(title = "TIF-All item") + theme(legend.position = "top")
+```
+
+
+## Tif gruppi di item 
+
+Normale Parametri liberi 
+
+```{r, echo = FALSE}
+plots <- list()
+graph_start_normal <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                                 distributio = "normal")
+data_info$distributio = "normal"
+temp_graph_normal <- rbind(data_info, 
+                              graph_start_normal)
+# for(i in 1:length(unique(data_info$num_item))) {
+#   
+#   plots[[i]] <-  ggplot(rbind(data_info[data_info$num_item %in% unique(data_info$num_item)[i], ], 
+#                               graph_start_normal), 
+#                         aes(x = theta, y = info, group = sel, 
+#                             col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3)  + 
+#     ggtitle(unique(data_info$num_item)[i]) +
+#     theme(legend.position = "none")
+# }
+# 
+# do.call(grid.arrange, plots)
+ggplot(temp_graph_normal, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top")+ ggtitle("Normale Parametri liberi")
+```
+
+Normale parametri fissi: 
+
+```{r, echo = FALSE}
+data_info_theta$distributio = "normal"
+temp_graph_normal_theta <- rbind(data_info_theta, 
+                              graph_start_normal)
+ggplot(temp_graph_normal_theta, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Normale Parametri fissi")
+```
+
+
+Skewness parametri liberi 
+
+```{r, echo = FALSE}
+graph_start_sk <- data.frame(theta = IRT.informationCurves(m2pl_sk, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl_sk, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_sk$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                             distributio = "sk")
+
+
+graph_start_sk_ex <- data.frame(theta = IRT.informationCurves(m2pl_sk_ex, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl_sk_ex, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_sk_ex$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                             distributio = "skEX")
+
+# 
+# plots_sk <- list()
+# 
+# for(i in 1:length(unique(data_info_sk$num_item))) {
+#   
+#   plots_sk[[i]] <-  ggplot(rbind(data_info_sk[data_info_sk$num_item %in% unique(data_info_sk$num_item)[i], ], 
+#                                  graph_start_sk), 
+#                            aes(x = theta, y = info, group = sel, 
+#                                col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) + 
+#     ggtitle(unique(data_info_sk$num_item)[i]) +
+#     theme(legend.position = "none")
+# }
+# 
+# 
+# do.call(grid.arrange, plots_sk)
+data_info_sk$distributio = "sk"
+temp_graph_sk <- rbind(graph_start_sk, 
+                              data_info_sk)
+sk_val_liberi = aggregate(info ~ num_item, 
+                          data = temp_graph_sk, Skew)
+
+data_info_sk_ex$distributio = "skEX"
+temp_graph_sk_ex <- rbind(graph_start_sk_ex, 
+                              data_info_sk_ex)
+
+sk_ex_val_liberi = aggregate(info ~ num_item, 
+                          data = temp_graph_sk_ex, Skew)
+
+
+ggplot(temp_graph_sk, 
+       aes(x = theta, y = info, group = sel, 
+           col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Sk Parametri liberi")
+```
+
+Parametri liberi SK estrema 
+
+
+```{r}
+ggplot(temp_graph_sk_ex, 
+       aes(x = theta, y = info, group = sel, 
+           col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Sk estrema Parametri liberi")
+```
+
+
+Parametri fissi skenweness
+
+```{r, echo = FALSE}
+data_info_sk_theta$distributio = "sk"
+temp_graph_sk_theta <- rbind(graph_start_sk, 
+                              data_info_sk_theta)
+sk_val_theta = aggregate(info ~ num_item, 
+                          data = temp_graph_sk_theta, Skew)
+ggplot(temp_graph_sk_theta, 
+       aes(x = theta, y = info, group = sel, 
+           col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Sk estrema Parametri fissi")
+```
+Parametri fissi skewness estrema 
+
+```{r, echo = FALSE}
+data_info_sk_ex_theta$distributio = "sk"
+temp_graph_sk_ex_theta <- rbind(graph_start_sk_ex, 
+                              data_info_sk_ex_theta)
+sk_ex_val_theta = aggregate(info ~ num_item, 
+                          data = temp_graph_sk_ex_theta, Skew)
+
+val_skew_all = data.frame(num_item = sk_ex_val_theta$num_item, 
+                          skewness_liberi = sk_val_liberi$info, 
+                          skewness_liberi_ex = sk_ex_val_liberi$info, 
+                          skewness_fissi = sk_val_theta$info, 
+                          skewness_fissi_ex = sk_ex_val_theta$info)
+
+ggplot(temp_graph_sk_ex_theta, 
+       aes(x = theta, y = info, group = sel, 
+           col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Sk Parametri fissi")
+```
+
+Uniforme parametri liberi 
+
+```{r, echo = FALSE}
+graph_start_uni <- data.frame(theta = IRT.informationCurves(m2pl_uni, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl_uni, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_uni$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                             distributio = "uni")
+
+# 
+# plots_uni <- list()
+# 
+# for(i in 1:length(unique(data_info_uni$num_item))) {
+#   
+#   plots_uni[[i]] <-  ggplot(rbind(data_info_uni[data_info_uni$num_item %in% unique(data_info_uni$num_item)[i], ], 
+#                                  graph_start_uni), 
+#                            aes(x = theta, y = info, group = sel, 
+#                                col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) + 
+#     ggtitle(unique(data_info_uni$num_item)[i]) +
+#     theme(legend.position = "none")
+# }
+# 
+# 
+# do.call(grid.arrange, plots_uni)
+data_info_uni$distributio = "uni"
+temp_graph_uni <- rbind(graph_start_uni, 
+                              data_info_uni)
+ggplot(temp_graph_uni, 
+       aes(x = theta, y = info, group = sel, 
+           col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Uniforme Parametri liberi")
+```
+
+Parametri fissi uniforme
+
+```{r, echo = FALSE}
+data_info_uni_theta$distributio = "uni"
+temp_graph_uni_theta <- rbind(graph_start_uni, 
+                              data_info_uni_theta)
+ggplot(temp_graph_uni_theta, 
+       aes(x = theta, y = info, group = sel, 
+           col = sel)) + geom_line(aes(linetype = sel), lwd = 1.4) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Uniforme Parametri fissi")
+```
+
+## Informazione 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+all_data_normal_theta$selection <- gsub("_theta|Theta", "", 
+                                        all_data_normal_theta$selection)
+all_data_normal_theta$distribution = "normal"
+all_data_normal$distribution = "normal"
+
+all_data_sk_theta$selection <- gsub("SK", "", 
+                                        all_data_sk_theta$selection)
+
+all_data_sk_theta$distribution = "sk"
+all_data_sk$distribution = "sk"
+
+all_data_sk_ex_theta$selection <- gsub("SK", "", 
+                                        all_data_sk_ex_theta$selection)
+
+all_data_sk_ex_theta$distribution = "skEX"
+all_data_sk_ex_theta$distribution = "skEX"
+
+
+all_data_uni$selection <- gsub("UNI", "", 
+                                    all_data_uni$selection)
+
+
+all_data_uni_theta$distribution = "uni"
+all_data_uni$distribution = "uni"
+
+# dati information 
+all_data_sk_ex$distribution = "SKex"
+
+data <- rbind(all_data_normal, all_data_sk, all_data_sk_ex, 
+              all_data_uni)
+
+data_theta <-  rbind(all_data_normal_theta, all_data_sk_theta, 
+                            all_data_uni_theta, all_data_sk_ex_theta)
+data_theta$selection <- gsub("uni", "", data_theta$selection)
+mean_info <- data[data$num_item %in% "all", ]
+mean_info_theta <- data_theta[data_theta$num_item %in% "all", ]
+data$selection <- gsub("range", "guided", data$selection)
+data_theta$selection <- gsub("range", "guided", data_theta$selection)
+
+data$selection = gsub("UNI", '', data$selection)
+
+ggplot(data[!data$num_item %in%"all", ], 
+                    aes(x=as.factor(item_temp), y=mean_info, 
+                        group=selection, color=selection)) + 
+               geom_line(aes(linetype = selection), lwd = 1.5) +
+               geom_point(aes(shape=selection))+
+               geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info), 
+                             width=.2,
+                             position=position_dodge(0.05)) + 
+               theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + 
+               scale_x_discrete(labels =  unique(data[!data$num_item %in%"all", "num_item"])) + 
+               facet_wrap(~distribution) + ylim(0,30) +
+               geom_hline(data = mean_info, aes(yintercept = mean_info)) + ggtitle("Info - Parametri liberi")
+             
+data_theta$selection = gsub("_newsk_ex|_ex", "", data_theta$selection)
+data_theta$selection = gsub("sk", "", data_theta$selection)
+data_theta$selection = gsub("guided_new", "guidedNew", data_theta$selection)
+ggplot(data_theta[!data_theta$num_item %in%"all", ], 
+                    aes(x=as.factor(item_temp), y=mean_info, 
+                        group=selection, color=selection)) + 
+               geom_line(aes(linetype = selection), lwd = 1.5) +
+               geom_point(aes(shape=selection))+
+               geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info), 
+                             width=.2,
+                             position=position_dodge(0.05)) + 
+               theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + 
+               scale_x_discrete(labels =  unique(data_theta[!data_theta$num_item %in%"all", "num_item"])) + 
+               facet_wrap(~distribution) + ylim(0,30) +
+               geom_hline(data = mean_info_theta, 
+                          aes(yintercept = mean_info)) + ggtitle("Info - Parametri fissi")
+             
+```
+
+## Reliability 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+data$selection = gsub("sk", "", data$selection)
+ggplot(data[!data$num_item %in%"all", ], 
+                    aes(x=as.factor(item_temp), y=mean_rel, 
+                        group=selection, color=selection)) + 
+               geom_line(aes(linetype = selection), lwd = 1.5) +
+               geom_point(aes(shape=selection))+
+               geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                             width=.2,
+                             position=position_dodge(0.05)) + 
+               theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + 
+               scale_x_discrete(labels =  unique(data[!data$num_item %in%"all", "num_item"])) + 
+               facet_wrap(~distribution) + ylim(0,1) +
+               geom_hline(data = mean_info, aes(yintercept = mean_rel)) + ggtitle("Reliability - Parametri liberi")
+             
+             
+ggplot(data_theta[!data_theta$num_item %in%"all", ], 
+                    aes(x=as.factor(item_temp), y=mean_rel, 
+                        group=selection, color=selection)) + 
+               geom_line(aes(linetype = selection), lwd = 1.5) +
+               geom_point(aes(shape=selection))+
+               geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                             width=.2,
+                             position=position_dodge(0.05)) + 
+               theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + 
+               scale_x_discrete(labels =  unique(data_theta[!data_theta$num_item %in%"all", "num_item"])) + 
+               facet_wrap(~distribution) + ylim(0,1) +
+               geom_hline(data = mean_info_theta, 
+                          aes(yintercept = mean_rel)) + ggtitle("Reliability - Parametri fissi")
+
+```
+
+## Bias assoluto
+
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ stimati sul modello con tutti gli item.
+
+```{r, echo = FALSE,  fig.show="hold", out.width="50%"}
+all_bias_normal$distribution = "normal"
+all_bias_sk$distribution = "sk"
+all_bias_sk_ex$distribution = "skEX"
+all_bias_uni$distribution = "uni"
+# all theta 
+all_bias_normal_theta$distribution = "normal"
+all_bias_sk_theta$distribution = "sk"
+all_bias_sk_ex_theta$distribution = "skEX"
+all_bias_uni_theta$distribution = "uni"
+all_bias_uni_theta$rmsea = NULL
+
+bias_all_theta = rbind(all_bias_normal_theta, 
+                 all_bias_sk_theta,
+                 all_bias_sk_ex_theta,
+                 all_bias_uni_theta)
+
+bias_all = rbind(all_bias_normal, 
+                 all_bias_sk,
+                 all_bias_sk_ex,
+                 all_bias_uni)
+bias_all$selection <- gsub("range", "guided", bias_all$selection)
+bias_all_theta$selection <- gsub("range", "guided", bias_all_theta$selection)
+
+
+ggplot(bias_all[bias_all$type %in% "bias_abs", ], 
+       aes(x=as.factor(temp), y = bias_all, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "bottom") + facet_wrap(~distribution) +
+  labs(title = "Bias stima con tutti gli item", 
+       subtitle = "Parametri liberi")
+
+bias_all_theta$selection = gsub("guidedNEW", "guidedNew", bias_all_theta$selection)
+ggplot(bias_all_theta[bias_all_theta$type %in% "bias_abs", ], 
+       aes(x=as.factor(temp), y = bias_all, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "bottom") + facet_wrap(~distribution) +
+  labs(title = "Bias stima con tutti gli item", 
+       subtitle = "Parametri fissi") 
+
+
+
+```
+
+
+## RMSE 
+
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ stimati sul modello con tutti gli item.
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+all_bias_normal_sq$distribution = "normal"
+all_bias_sk_sq$distribution = "sk"
+all_bias_uni_sq$distribution = "uniform"
+all_bias_sk_ex_sq$distribution = "skEX"
+
+rmse_all <- rbind(all_bias_normal_sq, 
+                   all_bias_sk_sq,
+                  all_bias_sk_ex_sq,
+                   all_bias_uni_sq)
+rmse_all$selection = gsub("range", "guided", rmse_all$selection)
+
+ggplot(rmse_all, 
+       aes(x=num_item, y = rmsea, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "RMSE stima con tutti gli item", 
+       subtitle = "Parametri liberi") 
+ 
+all_bias_normal_sq_theta$distribution = "normal"
+all_bias_sk_sq_theta$distribution = "sk"
+all_bias_sk_ex_sq_theta$distribution = "skEX"
+all_bias_uni_sq_theta$distribution = "uniform"
+
+rmse_all_theta <- rbind(all_bias_normal_sq_theta, 
+                   all_bias_sk_sq_theta,
+                   all_bias_sk_ex_sq_theta,
+                   all_bias_uni_sq_theta)
+rmse_all_theta$selection = gsub("range", "guided", 
+                                 rmse_all_theta$selection)
+rmse_all_theta$selection = gsub("guidedNew", "guidedNEW", 
+                                 rmse_all_theta$selection)
+ggplot(rmse_all_theta, 
+       aes(x=num_item, y = rmsea, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "RMSE stima con tutti gli item", 
+       subtitle = "Parametri fissi") + ylim(0, 1)
+
+```
+
+## Bias assoluto valori osservati 
+
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ "veri" (quelli simulati all'inizio, che quindi possono avere distribuzione normale, con skewness o uniforme).
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+obs_bias_normal$distribution = "normal"
+obs_bias_sk$distribution = "sk"
+obs_bias_sk_ex$distribution = "skEX"
+obs_bias_uni$distribution = "uni"
+
+obs_bias_normal_theta$distribution = "normal"
+obs_bias_sk_theta$distribution = "sk"
+obs_bias_sk_ex_theta$distribution = "skEX"
+obs_bias_uni_theta$distribution = "uni"
+
+
+bias_obs_theta = rbind(obs_bias_normal_theta, 
+                       obs_bias_sk_theta,
+                       obs_bias_sk_ex_theta,
+                       obs_bias_uni_theta)
+
+bias_obs_theta$selection = gsub("range", "guided", bias_obs_theta$selection)
+
+
+
+bias_obs = rbind(obs_bias_normal, 
+                 obs_bias_sk,
+                 obs_bias_sk_ex,
+                 obs_bias_uni)
+
+bias_obs$selection = gsub("range", "guided", bias_obs$selection)
+
+ggplot(bias_obs[bias_obs$type %in% "bias_abs", ], 
+       aes(x=as.factor(temp), y = bias_obs, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "bottom") + facet_wrap(~distribution) +
+  labs(title = "Bias theta osservati", 
+       subtitle = "Parametri liberi") 
+
+bias_obs_theta$selection = gsub("guidedNEW", "guidedNew", 
+                                bias_obs_theta$selection)
+
+ggplot(bias_obs_theta[bias_obs_theta$type %in% "bias_abs", ], 
+       aes(x=as.factor(temp), y = bias_obs, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "bottom") + facet_wrap(~distribution) +
+  labs(title = "Bias theta osservati", 
+       subtitle = "Parametri fissi") + ylim(0, 1)
+
+```
+
+
+
+## RMSE  valori osservati 
+
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ "veri" (quelli simulati all'inizio, che quindi possono avere distribuzione normale, con skewness o uniforme).
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+obs_bias_normal_sq$distribution = "normal"
+obs_bias_sk_sq$distribution = "sk"
+obs_bias_sk_ex_sq$distribution = "skEX"
+obs_bias_uni_sq$distribution = "uniform"
+
+rmsea_obs <- rbind(obs_bias_normal_sq, 
+                   obs_bias_sk_sq,
+                   obs_bias_sk_ex_sq,
+                   obs_bias_uni_sq)
+rmsea_obs$selection = gsub("range", "guided", rmsea_obs$selection)
+ggplot(rmsea_obs, 
+       aes(x=num_item, y = rmsea, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "RMSE theta osservati", 
+       subtitle = "Parametri liberi") 
+ 
+obs_bias_normal_sq_theta$distribution = "normal"
+obs_bias_sk_sq_theta$distribution = "sk"
+obs_bias_sk_ex_sq_theta$distribution = "skEX"
+obs_bias_uni_sq_theta$distribution = "uniform"
+
+rmsea_obs_theta <- rbind(obs_bias_normal_sq_theta, 
+                   obs_bias_sk_sq_theta,
+                   obs_bias_sk_ex_sq_theta,
+                   obs_bias_uni_sq_theta)
+
+
+rmsea_obs_theta$selection = gsub("range", "guided", rmsea_obs_theta$selection)
+rmsea_obs_theta$selection = gsub("guidedNEW", "guidedNew", rmsea_obs_theta$selection)
+
+ggplot(rmsea_obs_theta, 
+       aes(x=num_item, y = rmsea, group = selection, 
+           color = selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1.3) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "RMSE theta osservati", 
+       subtitle = "Parametri fissi") 
+```
+
+# Bias assoluto per gruppi di theta  
+
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ "veri" (quelli simulati all'inizio, che quindi possono avere distribuzione normale, con skewness o uniforme).
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+theta_lat_theta_normal <- seq(-2.5, 2.5, length.out = 4) 
+g <- cut(theta_lat_theta_normal, length(theta_lat_theta_normal), include.lowest = TRUE)
+cut_val = cut_borders(g)
+
+theta_normal_theta$group <- ifelse(theta_normal_theta$obs  <= cut_val[1, "start"], 
+                                   paste("<", cut_val[1,1]), 
+                                   ifelse(theta_normal_theta$obs > cut_val[1, "start"] & theta_normal_theta$obs <= cut_val[1, "end"], 
+                                          levels(g)[1], 
+                                          ifelse(theta_normal_theta$obs > cut_val[2, "start"] & theta_normal_theta$obs <= cut_val[2, "end"], 
+                                                 levels(g)[2], 
+                                                 ifelse(theta_normal_theta$obs > cut_val[3, "start"] & theta_normal_theta$obs <= cut_val[3, "end"], 
+                                                        levels(g)[3], 
+                                                        ifelse(theta_normal_theta$obs > cut_val[4, "start"] & theta_normal_theta$obs <= cut_val[4, "end"], 
+                                                               levels(g)[4], 
+                                                               paste(">", cut_val[4,2]))))))
+
+bias_abs_normal_group_theta <- aggregate(bias_obs_abs ~ selection + group + num_item, 
+                                         data = theta_normal_theta, mean)
+bias_abs_normal_group_theta$type = "bias"
+bias_abs_normal_group_theta$group = factor(bias_abs_normal_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_abs_normal_group_theta$selection = gsub("range", "guided", bias_abs_normal_group_theta$selection)
+
+ggplot(bias_abs_normal_group_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("normale") +
+  ylim(0,4) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom")
+
+# skewness
+theta_sk_theta$group <- ifelse(theta_sk_theta$obs  <= cut_val[1, "start"], 
+                                   paste("<", cut_val[1,1]), 
+                                   ifelse(theta_sk_theta$obs > cut_val[1, "start"] & theta_sk_theta$obs <= cut_val[1, "end"], 
+                                          levels(g)[1], 
+                                          ifelse(theta_sk_theta$obs > cut_val[2, "start"] & theta_sk_theta$obs <= cut_val[2, "end"], 
+                                                 levels(g)[2], 
+                                                 ifelse(theta_sk_theta$obs > cut_val[3, "start"] & theta_sk_theta$obs <= cut_val[3, "end"], 
+                                                        levels(g)[3], 
+                                                        ifelse(theta_sk_theta$obs > cut_val[4, "start"] & theta_sk_theta$obs <= cut_val[4, "end"], 
+                                                               levels(g)[4], 
+                                                               paste(">", cut_val[4,2]))))))
+
+bias_abs_sk_group_theta <- aggregate(bias_obs_abs ~ selection + group + num_item, 
+                                         data = theta_sk_theta, mean)
+bias_abs_sk_group_theta$type = "bias"
+bias_abs_sk_group_theta$group = factor(bias_abs_sk_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_abs_sk_group_theta$selection = gsub("range", "guided", bias_abs_sk_group_theta$selection)
+
+ggplot(bias_abs_sk_group_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("Skewness") +
+  ylim(0,4) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom")
+
+# skewness estrema 
+
+theta_sk_ex_theta$group <- ifelse(theta_sk_ex_theta$obs  <= cut_val[1, "start"], 
+                                   paste("<", cut_val[1,1]), 
+                                   ifelse(theta_sk_ex_theta$obs > cut_val[1, "start"] & theta_sk_ex_theta$obs <= cut_val[1, "end"], 
+                                          levels(g)[1], 
+                                          ifelse(theta_sk_ex_theta$obs > cut_val[2, "start"] & theta_sk_ex_theta$obs <= cut_val[2, "end"], 
+                                                 levels(g)[2], 
+                                                 ifelse(theta_sk_ex_theta$obs > cut_val[3, "start"] & theta_sk_ex_theta$obs <= cut_val[3, "end"], 
+                                                        levels(g)[3], 
+                                                        ifelse(theta_sk_ex_theta$obs > cut_val[4, "start"] & theta_sk_ex_theta$obs <= cut_val[4, "end"], 
+                                                               levels(g)[4], 
+                                                               paste(">", cut_val[4,2]))))))
+
+bias_abs_sk_ex_group_theta <- aggregate(bias_obs_abs ~ selection + group + num_item, 
+                                         data = theta_sk_ex_theta, mean)
+bias_abs_sk_ex_group_theta$type = "bias"
+bias_abs_sk_ex_group_theta$group = factor(bias_abs_sk_ex_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_abs_sk_ex_group_theta$selection = gsub("range", "guided", bias_abs_sk_ex_group_theta$selection)
+
+ggplot(bias_abs_sk_ex_group_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("Skewness estrema") +
+  ylim(0,4) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom")
+
+
+# uniform
+theta_uni_theta$group <- ifelse(theta_uni_theta$obs  <= cut_val[1, "start"], 
+                                   paste("<", cut_val[1,1]), 
+                                   ifelse(theta_uni_theta$obs > cut_val[1, "start"] & theta_uni_theta$obs <= cut_val[1, "end"], 
+                                          levels(g)[1], 
+                                          ifelse(theta_uni_theta$obs > cut_val[2, "start"] & theta_uni_theta$obs <= cut_val[2, "end"], 
+                                                 levels(g)[2], 
+                                                 ifelse(theta_uni_theta$obs > cut_val[3, "start"] & theta_uni_theta$obs <= cut_val[3, "end"], 
+                                                        levels(g)[3], 
+                                                        ifelse(theta_uni_theta$obs > cut_val[4, "start"] & theta_uni_theta$obs <= cut_val[4, "end"], 
+                                                               levels(g)[4], 
+                                                               paste(">", cut_val[4,2]))))))
+
+bias_abs_uni_group_theta <- aggregate(bias_obs_abs ~ selection + group + num_item, 
+                                         data = theta_uni_theta, mean)
+bias_abs_uni_group_theta$type = "bias"
+bias_abs_uni_group_theta$group = factor(bias_abs_uni_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_abs_uni_group_theta$selection = gsub("range", "guided", bias_abs_uni_group_theta$selection)
+
+ggplot(bias_abs_uni_group_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("uniforme") +
+  ylim(0,4) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom")
+ 
+
+```
+
+
+# Bias per gruppi di theta
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ "veri" (quelli simulati all'inizio, che quindi possono avere distribuzione normale, con skewness o uniforme). 
+
+A differenza del punto precedente, il bias non ha il valore assoluto. 
+Essendo $\hat{\theta} - \theta$, valori positivi indicano sovrastima, valori negativi indicano sottostima. 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+bias_normal_group_theta <- aggregate(bias_obs ~ selection + group + num_item, 
+                                         data = theta_normal_theta, mean)
+bias_normal_group_theta$type = "bias"
+bias_normal_group_theta$group = factor(bias_normal_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_normal_group_theta$selection = gsub("range", "guided", bias_normal_group_theta$selection)
+
+ggplot(bias_normal_group_theta, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + ggtitle("normale") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + ylim(-3, 3)
+
+# uniform
+
+bias_uni_group_theta <- aggregate(bias_obs ~ selection + group + num_item, 
+                                         data = theta_uni_theta, mean)
+bias_uni_group_theta$type = "bias"
+bias_uni_group_theta$group = factor(bias_uni_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_uni_group_theta$selection = gsub("range", "guided", bias_uni_group_theta$selection)
+ggplot(bias_uni_group_theta, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("uniforme")  + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + ylim(-3, 3)
+ 
+# skewness
+theta_sk_theta$group = factor(theta_sk_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_sk_group_theta <- aggregate(bias_obs ~ selection + group + num_item, 
+                                         data = theta_sk_theta, mean)
+bias_sk_group_theta$type = "bias"
+bias_sk_group_theta$group = factor(bias_sk_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+bias_sk_group_theta$selection = gsub("range", "guided", bias_sk_group_theta$selection)
+
+ggplot(bias_sk_group_theta, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("Skewness") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") +  ylim(-3, 3)
+
+# Skewness estrema
+
+theta_sk_ex_theta$group = factor(theta_sk_ex_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+bias_sk_ex_group_theta <- aggregate(bias_obs ~ selection + group + num_item, 
+                                         data = theta_sk_ex_theta, mean)
+bias_sk_ex_group_theta$type = "bias"
+bias_sk_ex_group_theta$group = factor(bias_sk_ex_group_theta$group, levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+bias_sk_ex_group_theta$selection = gsub("range", "guided", bias_sk_ex_group_theta$selection)
+
+ggplot(bias_sk_ex_group_theta, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) + 
+  facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("Skewness estrema") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") +  ylim(-3, 3)
+
+					
+
+
+```
+
+## RMSE per gruppi di theta 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+theta_normal_theta$group = factor(theta_normal_theta$group, 
+                                        levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+rmsea_normal_group_theta <- aggregate(bias_obs_sq ~ selection + group + num_item, 
+                                data = theta_normal_theta, mean)
+rmsea_normal_group_theta$rmsea = sqrt(rmsea_normal_group_theta$bias_obs_sq)
+rmsea_normal_group_theta$group = factor(rmsea_normal_group_theta$group, 
+                                        levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+rmsea_normal_group_theta$selection = gsub("range", "guided", rmsea_normal_group_theta$selection)
+ggplot(rmsea_normal_group_theta, 
+       aes(x=group, y = rmsea, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  facet_wrap(~num_item) + ggtitle("normale") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),  
+                     legend.position = "bottom") + ylim(0, 4)
+
+# skewness
+
+rmsea_sk_group_theta <- aggregate(bias_obs_sq ~ selection + group + num_item, 
+                                data = theta_sk_theta, mean)
+rmsea_sk_group_theta$rmsea = sqrt(rmsea_sk_group_theta$bias_obs_sq)
+rmsea_sk_group_theta$group = factor(rmsea_sk_group_theta$group, 
+                                        levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+rmsea_sk_group_theta$selection = gsub("range", "guided", rmsea_sk_group_theta$selection)
+ggplot(rmsea_sk_group_theta, 
+       aes(x=group, y = rmsea, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("skewbess") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + ylim(0, 4)
+
+# Skewness estrema 
+theta_sk_ex_theta$group = factor(theta_sk_ex_theta$group, 
+                                        levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+rmsea_sk_ex_group_theta <- aggregate(bias_obs_sq ~ selection + group + num_item, 
+                                data = theta_sk_ex_theta, mean)
+rmsea_sk_ex_group_theta$rmsea = sqrt(rmsea_sk_ex_group_theta$bias_obs_sq)
+rmsea_sk_ex_group_theta$group = factor(rmsea_sk_ex_group_theta$group, 
+                                        levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+rmsea_sk_ex_group_theta$selection = gsub("range", "guided", rmsea_sk_ex_group_theta$selection)
+ggplot(rmsea_sk_ex_group_theta, 
+       aes(x=group, y = rmsea, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("Skewness estrema") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + ylim(0, 4)
+
+
+# uniforme
+rmsea_uni_group_theta <- aggregate(bias_obs_sq ~ selection + group + num_item, 
+                                data = theta_uni_theta, mean)
+rmsea_uni_group_theta$rmsea = sqrt(rmsea_uni_group_theta$bias_obs_sq)
+rmsea_uni_group_theta$group = factor(rmsea_uni_group_theta$group, 
+                                        levels = c("< -2.5",  "[-2.5,-1.25]", "(-1.25,0]", "(0,1.25]", "(1.25,2.5]", "> 2.5" ))
+
+rmsea_uni_group_theta$selection = gsub("range", "guided", rmsea_uni_group_theta$selection)
+ggplot(rmsea_uni_group_theta, 
+       aes(x=group, y = rmsea, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("uniform") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+                     legend.position = "bottom") + ylim(0, 4)
+
+```
+
+
+
+<!-- ## Stessa cosa ma con intervallo più grosso  -->
+
+<!-- ```{r, echo = FALSE, fig.show="hold", out.width="50%"} -->
+<!-- # new interval --- -->
+
+<!-- theta_lat_theta <- seq(-2.5, 2.5, length.out = 10)  -->
+
+<!-- g <- cut(theta_lat_theta, length(theta_lat_theta), include.lowest = TRUE) -->
+<!-- cut_val = cut_borders(g) -->
+
+
+<!-- group_name10 <- letters[1:(nrow(cut_val)+2)] -->
+
+<!-- theta_normal_theta$selection <- gsub("range", "guided", theta_normal_theta$selection ) -->
+<!-- theta_normal_theta$group10 <- ifelse(theta_normal_theta$obs  <= cut_val[1, "start"],  -->
+<!--                                      group_name10[1],  -->
+<!--                                      ifelse(theta_normal_theta$obs > cut_val[1, "start"] & theta_normal_theta$obs <= cut_val[1, "end"],  -->
+<!--                                             group_name10[2],  -->
+<!--                                             ifelse(theta_normal_theta$obs > cut_val[2, "start"] & theta_normal_theta$obs <= cut_val[2, "end"],  -->
+<!--                                                    group_name10[3],  -->
+<!--                                                    ifelse(theta_normal_theta$obs > cut_val[3, "start"] & theta_normal_theta$obs <= cut_val[3, "end"],  -->
+<!--                                                           group_name10[4],  -->
+<!--                                                           ifelse(theta_normal_theta$obs > cut_val[4, "start"] & theta_normal_theta$obs <= cut_val[4, "end"],  -->
+<!--                                                                  group_name10[5], -->
+<!--                                                                  ifelse(theta_normal_theta$obs > cut_val[5, "start"] & theta_normal_theta$obs <= cut_val[5, "end"],  -->
+<!--                                                                         group_name10[6],  -->
+<!--                                                                         ifelse(theta_normal_theta$obs > cut_val[6, "start"] & theta_normal_theta$obs <= cut_val[6, "end"],  -->
+<!--                                                                                group_name10[7],  -->
+<!--                                                                                ifelse(theta_normal_theta$obs > cut_val[7, "start"] & theta_normal_theta$obs <= cut_val[7, "end"],  -->
+<!--                                                                                       group_name10[8],  -->
+<!--                                                                                       ifelse(theta_normal_theta$obs > cut_val[8, "start"] & theta_normal_theta$obs <= cut_val[8, "end"],  -->
+<!--                                                                                              group_name10[9], -->
+<!--                                                                                              ifelse(theta_normal_theta$obs > cut_val[9, "start"] & theta_normal_theta$obs <= cut_val[9, "end"],  -->
+<!--                                                                                                     group_name10[10],  -->
+<!--                                                                                                     ifelse(theta_normal_theta$obs > cut_val[10, "start"] & theta_normal_theta$obs <= cut_val[10, "end"],  -->
+<!--                                                                                                            group_name10[11],  -->
+<!--                                                                                                            group_name10[12]))))))))))) -->
+
+<!-- bias_abs_normal_group_theta10 <- aggregate(bias_obs_abs ~ selection + group10 + num_item,  -->
+<!--                                          data = theta_normal_theta, mean) -->
+<!-- bias_abs_normal_group_theta10$type = "bias" -->
+<!-- ggplot(bias_abs_normal_group_theta10,  -->
+<!--        aes(x=group10, y = bias_obs_abs, group = selection,  -->
+<!--            color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) +  -->
+<!--   scale_x_discrete(breaks = c(group_name10),  -->
+<!--                    labels = c("<-2.5", cut_val[,1], ">2.5"))  +  -->
+<!--   facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("Normal") +  -->
+<!--   ylim(0,6) -->
+
+<!-- # sk  -->
+<!-- theta_sk_theta$selection <- gsub("range", "guided", theta_sk_theta$selection ) -->
+<!-- theta_sk_theta$group10 <- ifelse(theta_sk_theta$obs  <= cut_val[1, "start"],  -->
+<!--                                  group_name10[1],  -->
+<!--                                  ifelse(theta_sk_theta$obs > cut_val[1, "start"] & theta_sk_theta$obs <= cut_val[1, "end"],  -->
+<!--                                         group_name10[2],  -->
+<!--                                         ifelse(theta_sk_theta$obs > cut_val[2, "start"] & theta_sk_theta$obs <= cut_val[2, "end"],  -->
+<!--                                                group_name10[3],  -->
+<!--                                                ifelse(theta_sk_theta$obs > cut_val[3, "start"] & theta_sk_theta$obs <= cut_val[3, "end"],  -->
+<!--                                                       group_name10[4],  -->
+<!--                                                       ifelse(theta_sk_theta$obs > cut_val[4, "start"] & theta_sk_theta$obs <= cut_val[4, "end"],  -->
+<!--                                                              group_name10[5], -->
+<!--                                                              ifelse(theta_sk_theta$obs > cut_val[5, "start"] & theta_sk_theta$obs <= cut_val[5, "end"],  -->
+<!--                                                                     group_name10[6],  -->
+<!--                                                                     ifelse(theta_sk_theta$obs > cut_val[6, "start"] & theta_sk_theta$obs <= cut_val[6, "end"],  -->
+<!--                                                                            group_name10[7],  -->
+<!--                                                                            ifelse(theta_sk_theta$obs > cut_val[7, "start"] & theta_sk_theta$obs <= cut_val[7, "end"],  -->
+<!--                                                                                   group_name10[8],  -->
+<!--                                                                                   ifelse(theta_sk_theta$obs > cut_val[8, "start"] & theta_sk_theta$obs <= cut_val[8, "end"],  -->
+<!--                                                                                          group_name10[9], -->
+<!--                                                                                          ifelse(theta_sk_theta$obs > cut_val[9, "start"] & theta_sk_theta$obs <= cut_val[9, "end"],  -->
+<!--                                                                                                 group_name10[10],  -->
+<!--                                                                                                 ifelse(theta_sk_theta$obs > cut_val[10, "start"] & theta_sk_theta$obs <= cut_val[10, "end"],  -->
+<!--                                                                                                        group_name10[11],  -->
+<!--                                                                                                        group_name10[12]))))))))))) -->
+
+<!-- bias_abs_sk_group_theta10 <- aggregate(bias_obs_abs ~ selection + group10 + num_item,  -->
+<!--                                        data = theta_sk_theta, mean) -->
+<!-- bias_abs_sk_group_theta10$type = "bias" -->
+
+
+<!-- # uni  -->
+<!-- theta_uni_theta$selection <- gsub("range", "guided", theta_uni_theta$selection ) -->
+<!-- theta_uni_theta$group10 <- ifelse(theta_uni_theta$obs  <= cut_val[1, "start"],  -->
+<!--                                   group_name10[1],  -->
+<!--                                   ifelse(theta_uni_theta$obs > cut_val[1, "start"] & theta_uni_theta$obs <= cut_val[1, "end"],  -->
+<!--                                          group_name10[2],  -->
+<!--                                          ifelse(theta_uni_theta$obs > cut_val[2, "start"] & theta_uni_theta$obs <= cut_val[2, "end"],  -->
+<!--                                                 group_name10[3],  -->
+<!--                                                 ifelse(theta_uni_theta$obs > cut_val[3, "start"] & theta_uni_theta$obs <= cut_val[3, "end"],  -->
+<!--                                                        group_name10[4],  -->
+<!--                                                        ifelse(theta_uni_theta$obs > cut_val[4, "start"] & theta_uni_theta$obs <= cut_val[4, "end"],  -->
+<!--                                                               group_name10[5], -->
+<!--                                                               ifelse(theta_uni_theta$obs > cut_val[5, "start"] & theta_uni_theta$obs <= cut_val[5, "end"],  -->
+<!--                                                                      group_name10[6],  -->
+<!--                                                                      ifelse(theta_uni_theta$obs > cut_val[6, "start"] & theta_uni_theta$obs <= cut_val[6, "end"],  -->
+<!--                                                                             group_name10[7],  -->
+<!--                                                                             ifelse(theta_uni_theta$obs > cut_val[7, "start"] & theta_uni_theta$obs <= cut_val[7, "end"],  -->
+<!--                                                                                    group_name10[8],  -->
+<!--                                                                                    ifelse(theta_uni_theta$obs > cut_val[8, "start"] & theta_uni_theta$obs <= cut_val[8, "end"],  -->
+<!--                                                                                           group_name10[9], -->
+<!--                                                                                           ifelse(theta_uni_theta$obs > cut_val[9, "start"] & theta_uni_theta$obs <= cut_val[9, "end"],  -->
+<!--                                                                                                  group_name10[10],  -->
+<!--                                                                                                  ifelse(theta_uni_theta$obs > cut_val[10, "start"] & theta_uni_theta$obs <= cut_val[10, "end"],  -->
+<!--                                                                                                         group_name10[11],  -->
+<!--                                                                                                         group_name10[12]))))))))))) -->
+
+<!-- bias_abs_uni_group_theta10 <- aggregate(bias_obs_abs ~ selection + group10 + num_item,  -->
+<!--                                         data = theta_uni_theta, mean) -->
+<!-- bias_abs_uni_group_theta10$type = "bias" -->
+<!-- ggplot(bias_abs_uni_group_theta10,  -->
+<!--        aes(x=group10, y = bias_obs_abs, group = selection,  -->
+<!--            color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) +  -->
+<!--   scale_x_discrete(breaks = c(group_name10),  -->
+<!--                    labels = c("<-2.5", cut_val[,1], ">2.5"))  +  -->
+<!--   facet_wrap(~num_item) + theme(legend.position = "bottom")  + ggtitle("Skewness") + ylim(0,6) -->
+
+<!-- ggplot(bias_abs_sk_group_theta10,  -->
+<!--        aes(x=group10, y = bias_obs_abs, group = selection,  -->
+<!--            color = selection)) + geom_line(aes(linetype = selection), lwd =1.3) +  -->
+<!--   scale_x_discrete(breaks = c(group_name10),  -->
+<!--                    labels = c("<-2.5", cut_val[,1], ">2.5"))  +  -->
+<!--   facet_wrap(~num_item) + theme(legend.position = "bottom") + ggtitle("Skewness") + ylim(0,6) -->
+<!-- ``` -->
+

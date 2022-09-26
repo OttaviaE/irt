@@ -1,0 +1,945 @@
+---
+title: "Summarys IRT item Uniform"
+author: "Ottavia M. Epifania"
+date: "13/7/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
+                      tidy= TRUE,
+                      tidy.opts = list(width.cutoff=50),  
+                      collapse = TRUE)
+library(gridExtra)
+library(ggplot2)
+library(TAM)
+library(psych)
+library(sn)
+library(sirt)
+library(DescTools)
+set.seed(999)
+# per dividere il tratto latente ---- 
+cut_borders <- function(x){
+  pattern <- "(\\(|\\[)(-*[0-9]+\\.*[0-9]*),(-*[0-9]+\\.*[0-9]*)(\\)|\\])"
+  
+  start <- as.numeric(gsub(pattern,"\\2", x))
+  end <- as.numeric(gsub(pattern,"\\3", x))
+  
+  data.frame(start, end)
+}
+
+load("UNIsummary.RData")
+load("SKsummary.RData")
+load("NORMALsummary.RData")
+
+```
+
+<!-- ## Distribuzioni -->
+
+<!-- ### Normale  -->
+
+<!-- ```{r} -->
+<!-- set.seed(999) -->
+<!-- N <- 1000 # number of persons -->
+<!-- true_theta = rnorm(N, mean=0, sd=1) -->
+
+<!-- cluster = kmeans(matrix(true_theta, ncol =1), centers = 10) -->
+<!-- data = data.frame(value = true_theta, lab = rep("x", length(true_theta))) -->
+<!-- clusters = data.frame(cluster = cluster$centers[,1][order(cluster$centers[,1])],  -->
+<!--                       end = dnorm(cluster$centers[,1][order(cluster$centers[,1])],  -->
+<!--                                    mean(true_theta),  -->
+<!--                                    sd(true_theta))) -->
+<!-- groups =  seq(min(true_theta), max(true_theta), -->
+<!--                 length =10) -->
+<!-- group = data.frame(groups = groups,  -->
+<!--                       end = dnorm(groups,  -->
+<!--                                   mean(true_theta),  -->
+<!--                                   sd(true_theta))) -->
+<!-- ggplot(data,  -->
+<!--        aes(x= true_theta)) + geom_density() +  ylim(-0.10, 0.5) + theme_minimal() + -->
+<!--   geom_segment(data = clusters,  -->
+<!--                aes(x =cluster, y = 0.02,  -->
+<!--                    xend = cluster,  -->
+<!--                    yend = -0.05,  -->
+<!--                    linetype = "Cluster")) +  -->
+<!--   geom_segment(aes(x=clusters$cluster[1],xend=clusters$cluster[nrow(clusters)], -->
+<!--                    y=-0.03,yend=-0.03)) +  -->
+<!--   geom_segment(data = group,  -->
+<!--                aes(x =groups, y =-0.04,  -->
+<!--                    xend = groups,  -->
+<!--                    yend = -0.10,  -->
+<!--                    linetype = "Guided")) +  -->
+<!--   geom_segment(aes(x=group$groups[1],xend=group$groups[nrow(group)], -->
+<!--                    y=-0.07,yend=-0.07, linetype = "Guided")) + ggtitle("Normale") + xlim(-3.5,3.5) + theme(legend.position = "bottom",  -->
+<!--                                                                                                            legend.title = element_blank(),  -->
+<!--                                                                                                            axis.title.y = element_blank(),  -->
+<!--                                                                                                                    axis.title.x = element_text(size = 28),  -->
+<!--                                                                                                            axis.text = element_text(22), -->
+<!--                                                                                                            legend.text = element_text(size = 28)) +  -->
+<!--    xlab(expression(theta)) #+ annotate(geom = "text",  -->
+<!-- #                                      x = 3,  -->
+<!-- #                                      y = -0.01,  -->
+<!-- #                                      label = "Guided") + -->
+<!-- # annotate(geom = "text",  -->
+<!-- #                                      x = 3.5,  -->
+<!-- #                                      y = -0.08,  -->
+<!-- #                                      label = "Cluster") -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- set.seed(999) -->
+<!-- # moments <- c(mean = -2,variance = 1,skewness = 0.71, kurtosis = 4) -->
+<!-- # true_theta_sk <- c(rpearson(1000, moments = moments)) -->
+<!-- # true_theta_sk = (true_theta_sk*0.5396) -.9227 -->
+
+<!-- true_theta_sk = (rbeta(1000, 1, 100)*100) - 3 -->
+
+<!-- data_sk = data.frame(value = true_theta_sk, lab = rep("x", length(true_theta_sk))) -->
+<!-- cluster_sk = kmeans(matrix(true_theta_sk, ncol =1), centers = 10) -->
+<!-- clusters_sk = data.frame(cluster = cluster_sk$centers[,1][order(cluster_sk$centers[,1])],  -->
+<!--                       end = dnorm(cluster_sk$centers[,1][order(cluster_sk$centers[,1])],  -->
+<!--                                   mean(true_theta_sk),  -->
+<!--                                   sd(true_theta_sk))) -->
+<!-- groups = seq(min(true_theta_sk), max(true_theta_sk), -->
+<!--                 length =10) -->
+<!-- group_sk = data.frame(groups = groups,  -->
+<!--                    end = dnorm(groups,  -->
+<!--                                mean(true_theta_sk),  -->
+<!--                                sd(true_theta_sk))) -->
+
+<!-- ggplot(data_sk,  -->
+<!--        aes(x= true_theta_sk)) + geom_density() +  ylim(-0.10, 1) + theme_minimal() + -->
+<!--   geom_segment(data = clusters_sk,  -->
+<!--                aes(x =cluster, y =0.02,  -->
+<!--                    xend = cluster,  -->
+<!--                    yend = -0.05, linetype = "Cluster")) +  -->
+<!--   geom_segment(aes(x=clusters_sk$cluster[1],xend=clusters_sk$cluster[nrow(clusters_sk)], -->
+<!--                    y=-0.01,yend=-0.01)) +  -->
+<!--   geom_segment(data = group_sk,  -->
+<!--                aes(x =groups, y =-0.04,  -->
+<!--                    xend = groups,  -->
+<!--                    yend = -0.10, linetype="Guided")) +  -->
+<!--   geom_segment(aes(x=group_sk$groups[1],xend=group_sk$groups[nrow(group_sk)], -->
+<!--                    y=-0.07,yend=-0.07,linetype="Guided")) + ggtitle("Skewness") + xlim(-3.5,3.5) + theme(legend.position = "bottom",  -->
+<!--                                                                                                            legend.title = element_blank(),  -->
+<!--                                                                                                            axis.title.y = element_blank(),  -->
+<!--                                                                                                                    axis.title.x = element_text(size = 28),  -->
+<!--                                                                                                            axis.text = element_text(22), -->
+<!--                                                                                                            legend.text = element_text(size = 28)) +  -->
+<!--    xlab(expression(theta)) #+ annotate(geom = "text",  -->
+<!-- #                                      x = 3,  -->
+<!-- #                                      y = -0.01,  -->
+<!-- #                                      label = "Guided") + -->
+<!-- # annotate(geom = "text",  -->
+<!-- #                                      x = 3.5,  -->
+<!-- #                                      y = -0.08,  -->
+<!-- #                                      label = "Cluster") -->
+
+<!-- ``` -->
+
+<!-- ## Uniform -->
+
+<!-- ```{r} -->
+<!-- set.seed(999) -->
+<!-- true_theta_uni <- c(runif(1000, min = -3, max = 3)) -->
+<!-- cluster_uni = kmeans(matrix(true_theta_uni, ncol =1), centers = 10) -->
+<!-- data_uni = data.frame(value = true_theta_uni, lab = rep("x", length(true_theta_uni))) -->
+<!-- clusters_uni = data.frame(cluster = cluster_uni$centers[,1][order(cluster_uni$centers[,1])],  -->
+<!--                           end = dnorm(cluster_uni$centers[,1][order(cluster_uni$centers[,1])],  -->
+<!--                                       mean(true_theta_uni),  -->
+<!--                                       sd(true_theta_uni))) -->
+<!-- groups = seq(min(true_theta_uni), max(true_theta_uni), -->
+<!--                 length =10) -->
+<!-- group_uni = data.frame(groups = groups,  -->
+<!--                        end = dnorm(groups,  -->
+<!--                                    mean(true_theta_uni),  -->
+<!--                                    sd(true_theta_uni))) -->
+
+<!-- ggplot(data_uni,  -->
+<!--        aes(x= true_theta_uni)) + geom_density() +  ylim(-0.10, 1) + theme_minimal() + -->
+<!--   geom_segment(data = clusters_uni,  -->
+<!--                aes(x =cluster, y =0.02,  -->
+<!--                    xend = cluster,  -->
+<!--                    yend = -0.05,  -->
+<!--                linetype = "Cluster")) +  -->
+<!--   geom_segment(aes(x=clusters_uni$cluster[1],xend=clusters_uni$cluster[nrow(clusters_uni)], -->
+<!--                    y=-0.03,yend=-0.03,  -->
+<!--                linetype = "Cluster")) +  -->
+<!--   geom_segment(data = group_uni,  -->
+<!--                aes(x =groups, y =-0.04,  -->
+<!--                    xend = groups,  -->
+<!--                    yend = -0.10,  -->
+<!--                    linetype = "Guided")) +  -->
+<!--   geom_segment(aes(x=group_uni$groups[1],xend=group_uni$groups[nrow(group_uni)], -->
+<!--                    y=-0.07,yend=-0.07,   -->
+<!--                    linetype = "Guided"))  + xlim(-3.5,3.5) + theme(legend.position = "bottom",  -->
+<!--                                                                                                            legend.title = element_blank(),  -->
+<!--                                                                                                            axis.title.y = element_blank(),  -->
+<!--                                                                                                                    axis.title.x = element_text(size = 28),  -->
+<!--                                                                                                            axis.text = element_text(22), -->
+<!--                                                                                                            legend.text = element_text(size = 28)) +  -->
+<!--    xlab(expression(theta)) #+ annotate(geom = "text",  -->
+<!-- #                                      x = 3,  -->
+<!-- #                                      y = -0.01,  -->
+<!-- #                                      label = "Guided") + -->
+<!-- # annotate(geom = "text",  -->
+<!-- #                                      x = 3.5,  -->
+<!-- #                                      y = -0.08,  -->
+<!-- #                                      label = "Cluster") -->
+
+<!-- ``` -->
+
+
+## Gli item: 
+
+```{r, echo = TRUE, eval= TRUE}
+set.seed(999)
+
+b <- runif(100, -3,3)
+a = c(runif(100, 0.4, 2))
+
+item = data.frame(b = b, 
+                  a = a)
+```
+
+```{r}
+ggplot(item, 
+       aes(x = b, y = a)) + geom_line()
+```
+
+
+## TIF 
+
+```{r}
+tif_all_normal <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                           theta = seq(-3, 3, 
+                                                                       length = 1000))$theta,
+                             info = IRT.informationCurves(m2pl, 
+                                                          theta = seq(-3, 3, 
+                                                                      length = 1000))$test_info_curve, 
+                             num_item = "all", 
+                             sel = "start", 
+                             distributio = "Normale")
+
+tif_all_sk <- data.frame(theta = IRT.informationCurves(m2pl_sk, 
+                                                           theta = seq(-3, 3, 
+                                                                       length = 1000))$theta,
+                             info = IRT.informationCurves(m2pl_sk, 
+                                                          theta = seq(-3, 3, 
+                                                                      length = 1000))$test_info_curve, 
+                             num_item = "all", 
+                             sel = "start", 
+                         distributio = "Skewed")
+
+
+
+tif_all_uni <- data.frame(theta = IRT.informationCurves(m2pl_uni, 
+                                                       theta = seq(-3, 3, 
+                                                                   length = 1000))$theta,
+                         info = IRT.informationCurves(m2pl_uni, 
+                                                      theta = seq(-3, 3, 
+                                                                  length = 1000))$test_info_curve, 
+                         num_item = "all", 
+                         sel = "start", 
+                         distributio = "Uniforme")
+
+tif_all <- rbind(tif_all_normal, 
+                 tif_all_sk, tif_all_uni)
+
+
+ggplot(tif_all, 
+       aes(x = theta, y = info, group = distributio, 
+           col = distributio)) + 
+  geom_line(aes(linetype = distributio), lwd = 2) + theme_minimal() +
+  labs(title = "TIF-All item") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28)) + xlab(expression(theta)) +ylab("Informazione")
+```
+
+## TIF Gruppi di item 
+
+```{r, fig.show='hold', out.width="50%"}
+graph_start_normal <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_theta$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                                 distributio = "normal")
+
+data_info_theta$distributio = "normal"
+
+# solo UNA combinazione
+temp_graph_normal_theta <- #rbind(
+  data_info_theta #, graph_start_normal)
+#temp_graph_normal_theta = temp_graph_normal_theta[!temp_graph_normal_theta$sel %in% "guided", ]
+ggplot(temp_graph_normal_theta, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Normale Parametri fissi", subtitle = "Solo una random") + theme_minimal() +
+  labs(title = "TIF-ALL random Normale item") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28)) + xlab(expression(theta)) +ylab("Informazione")
+
+# skweness 
+
+graph_start_sk <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_sk_theta$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                                 distributio = "sk")
+data_info_sk_theta$distributio = "sk"
+
+temp_graph_sk_theta <- #rbind(
+  data_info_sk_theta #, graph_start_sk)
+#temp_graph_sk_theta = temp_graph_sk_theta[!temp_graph_sk_theta$sel %in% "guided", ]
+
+ggplot(temp_graph_sk_theta, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Skewed Parametri fissi", subtitle = "Solo una random") + theme_minimal() +
+  labs(title = "TIF-All Skewed item") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28)) + xlab(expression(theta)) +ylab("Informazione")
+
+
+# Uniform
+
+graph_start_uni <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_uni_theta$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                                 distributio = "uni")
+data_info_uni_theta$distributio = "uni"
+
+temp_graph_uni_theta <- #rbind(
+  data_info_uni_theta#, graph_start_uni)
+#temp_graph_uni_theta = temp_graph_uni_theta[!temp_graph_uni_theta$sel %in% "guided", ]
+
+ggplot(temp_graph_uni_theta, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Uniforme Parametri fissi") + ggtitle("Uniform Parametri fissi", subtitle = "Solo una random") + theme_minimal() +
+  labs(title = "TIF-All Skewed item") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28)) + xlab(expression(theta)) +ylab("Informazione")
+
+
+```
+
+
+## Con la media di tutte le random 
+
+```{r, fig.show='hold', out.width="50%"}
+graph_start_normal <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_theta_all$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                                 distributio = "normal")
+
+data_info_theta_all$distributio = "normal"
+
+# solo UNA combinazione
+temp_graph_normal_theta_all <- #rbind(
+  data_info_theta_all#, graph_start_normal)
+#temp_graph_normal_theta_all = temp_graph_normal_theta_all[!temp_graph_normal_theta_all$sel %in% "guided", ]
+ggplot(temp_graph_normal_theta_all, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Normale Parametri fissi", subtitle = "Media random") + theme_minimal() +
+  labs(title = "TIF-All Normale item") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28)) + xlab(expression(theta)) +ylab("Informazione")
+
+# skweness 
+
+graph_start_sk <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_sk_theta_all$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                                 distributio = "sk")
+data_info_sk_theta_all$distributio = "sk"
+
+temp_graph_sk_theta_all <- #rbind(
+  data_info_sk_theta_all #,  graph_start_sk)
+#temp_graph_sk_theta_all = temp_graph_sk_theta_all[!temp_graph_sk_theta_all$sel %in% "guided", ]
+
+ggplot(temp_graph_sk_theta_all, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Skewed Parametri fissi", subtitle = "Media random") + theme_minimal() +
+  labs(title = "TIF-All Skewed item") + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28)) + xlab(expression(theta)) +ylab("Informazione")
+
+
+# Uniform
+
+graph_start_uni <- data.frame(theta = IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$theta, 
+                                 info = (IRT.informationCurves(m2pl, 
+                                                               theta = seq(-3,3,length = 1000))$test_info_curve), 
+                                 num_item = rep(unique(data_info_uni_theta_all$num_item), 
+                                                each = 1000),
+                                 sel = "start", 
+                                 distributio = "uni")
+data_info_uni_theta_all$distributio = "uni"
+
+temp_graph_uni_theta_all <- #rbind(
+  data_info_uni_theta_all #,  graph_start_uni)
+#temp_graph_uni_theta_all = temp_graph_uni_theta_all[!temp_graph_uni_theta_all$sel %in% "guided", ]
+
+ggplot(temp_graph_uni_theta_all, 
+                aes(x = theta, y = info, group = sel, 
+                            col = sel)) + geom_line(aes(linetype = sel), lwd = 1.3) +
+  facet_wrap(~num_item) + theme(legend.position = "top") + ggtitle("Uniforme Parametri fissi") + ggtitle("Uniform Parametri fissi", subtitle = "media random") + theme_minimal() + xlim(-3.5,3.5) + theme(legend.position = "bottom", 
+                                                                                                           legend.title = element_blank(), 
+                                                                                                           
+                                                                                                                   axis.title.x = element_text(size = 28), 
+                                                                                                           axis.text = element_text(22),
+                                                                                                           legend.text = element_text(size = 28)) + xlab(expression(theta)) +ylab("Informazione")
+
+
+```
+
+
+## Informazione Normale 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+ggplot(all_data_theta[!all_data_theta$num_item %in%"all", ],
+       aes(x=as.factor(item_temp), y=mean_info,
+           group=selection, color=selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.5) +
+  geom_point(aes(shape=selection))+
+  geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info),
+                width=.2,
+                position=position_dodge(0.05)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels =  unique(all_data_theta[!all_data_theta$num_item %in%"all", "num_item"])) +
+  geom_hline(yintercept = all_data_theta[all_data_theta$num_item %in% "all",
+                                             "mean_info"]) + ggtitle("Informazione (media random)")
+
+ggplot(all_data_theta[!all_data_theta$num_item %in%"all", ], 
+       aes(x=as.factor(item_temp), y=mean_rel, 
+           group=selection, color=selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1) +
+  geom_point(aes(shape=selection), size =2)+
+  geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                width=.2,
+                position=position_dodge(0.05)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(labels = unique(all_data_theta[!all_data_theta$num_item %in%"all", "num_item"])) + 
+  geom_hline(yintercept = all_data_theta[all_data_theta$num_item %in% "all", 
+                                             "mean_rel"]) + ylim(0,1) + ggtitle("Reliability (media random)")
+
+# unica combo random 
+
+ggplot(data_random_theta_unique[!data_random_theta_unique$num_item %in%"all", ],
+       aes(x=as.factor(num_item), y=mean_info,
+           group=selection, color=selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.5) +
+  geom_point(aes(shape=selection))+
+  geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info),
+                width=.2,
+                position=position_dodge(0.05)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels =  unique(data_random_theta_unique[!data_random_theta_unique$num_item %in%"all", "num_item"])) +
+  geom_hline(yintercept = data_random_theta_unique[data_random_theta_unique$num_item %in% "all",
+                                             "mean_info"]) + ggtitle("Informazione (unica random)")
+
+ggplot(data_random_theta_unique[!data_random_theta_unique$num_item %in%"all", ], 
+       aes(x=as.factor(num_item), y=mean_rel, 
+           group=selection, color=selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1) +
+  geom_point(aes(shape=selection), size =2)+
+  geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                width=.2,
+                position=position_dodge(0.05)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(labels = unique(data_random_theta_unique[!data_random_theta_unique$num_item %in%"all", "num_item"])) + 
+  geom_hline(yintercept = data_random_theta_unique[data_random_theta_unique$num_item %in% "all", 
+                                             "mean_rel"]) + ylim(0,1) + ggtitle("Reliability (unica random)")
+
+
+
+
+         
+```
+
+
+## Informazione sk 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+ggplot(all_data_sk_theta[!all_data_sk_theta$num_item %in%"all", ],
+       aes(x=as.factor(item_temp), y=mean_info,
+           group=selection, color=selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.5) +
+  geom_point(aes(shape=selection))+
+  geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info),
+                width=.2,
+                position=position_dodge(0.05)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels =  unique(all_data_sk_theta[!all_data_sk_theta$num_item %in%"all", "num_item"])) +
+  geom_hline(yintercept = all_data_sk_theta[all_data_sk_theta$num_item %in% "all",
+                                             "mean_info"]) + ggtitle("Informazione (media random)")
+
+ggplot(all_data_sk_theta[!all_data_sk_theta$num_item %in%"all", ], 
+       aes(x=as.factor(item_temp), y=mean_rel, 
+           group=selection, color=selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1) +
+  geom_point(aes(shape=selection), size =2)+
+  geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                width=.2,
+                position=position_dodge(0.05)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(labels = unique(all_data_sk_theta[!all_data_sk_theta$num_item %in%"all", "num_item"])) + 
+  geom_hline(yintercept = all_data_sk_theta[all_data_sk_theta$num_item %in% "all", 
+                                             "mean_rel"]) + ylim(0,1) + ggtitle("Reliability (media random)")
+
+# unica combo random 
+
+ggplot(data_sk_random_theta_unique[!data_sk_random_theta_unique$num_item %in%"all", ],
+       aes(x=as.factor(num_item), y=mean_info,
+           group=selection, color=selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.5) +
+  geom_point(aes(shape=selection))+
+  geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info),
+                width=.2,
+                position=position_dodge(0.05)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels =  unique(data_sk_random_theta_unique[!data_sk_random_theta_unique$num_item %in%"all", "num_item"])) +
+  geom_hline(yintercept = data_sk_random_theta_unique[data_sk_random_theta_unique$num_item %in% "all",
+                                             "mean_info"]) + ggtitle("Informazione (unica random)")
+
+ggplot(data_sk_random_theta_unique[!data_sk_random_theta_unique$num_item %in%"all", ], 
+       aes(x=as.factor(num_item), y=mean_rel, 
+           group=selection, color=selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1) +
+  geom_point(aes(shape=selection), size =2)+
+  geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                width=.2,
+                position=position_dodge(0.05)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(labels = unique(data_sk_random_theta_unique[!data_sk_random_theta_unique$num_item %in%"all", "num_item"])) + 
+  geom_hline(yintercept = data_sk_random_theta_unique[data_sk_random_theta_unique$num_item %in% "all", 
+                                             "mean_rel"]) + ylim(0,1) + ggtitle("Reliability (unica random)")
+            
+```
+
+## Informazione uni 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+ggplot(all_data_uni_theta[!all_data_uni_theta$num_item %in%"all", ],
+       aes(x=as.factor(item_temp), y=mean_info,
+           group=selection, color=selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.5) +
+  geom_point(aes(shape=selection))+
+  geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info),
+                width=.2,
+                position=position_dodge(0.05)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels =  unique(all_data_uni_theta[!all_data_uni_theta$num_item %in%"all", "num_item"])) +
+  geom_hline(yintercept = all_data_uni_theta[all_data_uni_theta$num_item %in% "all",
+                                             "mean_info"]) + ggtitle("Informazione (media random)")
+
+ggplot(all_data_uni_theta[!all_data_uni_theta$num_item %in%"all", ], 
+       aes(x=as.factor(item_temp), y=mean_rel, 
+           group=selection, color=selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1) +
+  geom_point(aes(shape=selection), size =2)+
+  geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                width=.2,
+                position=position_dodge(0.05)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(labels = unique(all_data_uni_theta[!all_data_uni_theta$num_item %in%"all", "num_item"])) + 
+  geom_hline(yintercept = all_data_uni_theta[all_data_uni_theta$num_item %in% "all", 
+                                             "mean_rel"]) + ylim(0,1) + ggtitle("relibaility (media random)")
+
+# unica combo random 
+
+ggplot(data_uni_random_theta_unique[!data_uni_random_theta_unique$num_item %in%"all", ],
+       aes(x=as.factor(num_item), y=mean_info,
+           group=selection, color=selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.5) +
+  geom_point(aes(shape=selection))+
+  geom_errorbar(aes(ymin=mean_info-sd_info, ymax=mean_info+sd_info),
+                width=.2,
+                position=position_dodge(0.05)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels =  unique(data_uni_random_theta_unique[!data_uni_random_theta_unique$num_item %in%"all", "num_item"])) +
+  geom_hline(yintercept = data_uni_random_theta_unique[data_uni_random_theta_unique$num_item %in% "all",
+                                             "mean_info"]) + ggtitle("Informazione (unica random)")
+
+ggplot(data_uni_random_theta_unique[!data_uni_random_theta_unique$num_item %in%"all", ], 
+       aes(x=as.factor(num_item), y=mean_rel, 
+           group=selection, color=selection)) + 
+  geom_line(aes(linetype = selection), lwd = 1) +
+  geom_point(aes(shape=selection), size =2)+
+  geom_errorbar(aes(ymin=mean_rel-sd_rel, ymax=mean_rel+sd_rel), 
+                width=.2,
+                position=position_dodge(0.05)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(labels = unique(data_uni_random_theta_unique[!data_uni_random_theta_unique$num_item %in%"all", "num_item"])) + 
+  geom_hline(yintercept = data_uni_random_theta_unique[data_uni_random_theta_unique$num_item %in% "all", 
+                                             "mean_rel"]) + ylim(0,1) + ggtitle("reliability (unica random)")
+     
+```
+## Bias & RMSE assoluto valori osservati 
+
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi test e i $\theta$ "veri" (quelli simulati all'inizio, che quindi possono avere distribuzione normale, con skewness o uniforme).
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+uni_bias_obs_theta$distribution = "uni"
+sk_bias_obs_theta$distribution = "sk"
+normal_bias_obs_theta$distribution = "normal"
+
+bias_obs = rbind(uni_bias_obs_theta, 
+                 sk_bias_obs_theta, 
+                 normal_bias_obs_theta)
+
+ggplot(bias_obs,
+       aes(x=as.factor(num_item), y = (bias_obs), group = selection,
+           color = selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.3) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5,
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "Bias theta osservati",
+       subtitle = "Parametri fissi")
+
+uni_rmse_obs_theta$distribution = "uni"
+sk_rmse_obs_theta$distribution = "sk"
+normal_rmse_obs_theta$distribution = "normal"
+
+rmse_obs = rbind(uni_rmse_obs_theta, sk_rmse_obs_theta, 
+                 normal_rmse_obs_theta)
+ggplot(rmse_obs,
+       aes(x=as.factor(num_item), y = (rmse), group = selection,
+           color = selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.3) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5,
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "RMSE theta osservati",
+       subtitle = "Parametri fissi") 
+
+uni_bias_obs_abs_theta$distribution = "uni"
+sk_bias_obs_abs_theta$distribution = "sk"
+normal_bias_obs_abs_theta$distribution = "normal"
+
+bias_obs_abs = rbind(uni_bias_obs_abs_theta, 
+                 sk_bias_obs_abs_theta, 
+                 normal_bias_obs_abs_theta)
+
+ggplot(bias_obs_abs,
+       aes(x=as.factor(num_item), y = (bias_obs_abs), group = selection,
+           color = selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.3) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5,
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "Bias assoluto theta osservati",
+       subtitle = "Parametri fissi")
+
+
+```
+
+
+## Bias & RMSE assoluto valori osservati 
+
+Stessa cosa ma considero i valori medi della random
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+uni_bias_obs_theta_mean$distribution = "uni"
+sk_bias_obs_theta_mean$distribution = "sk"
+normal_bias_obs_theta_mean$distribution = "normal"
+
+bias_obs = rbind(uni_bias_obs_theta_mean, 
+                 sk_bias_obs_theta_mean, 
+                 normal_bias_obs_theta_mean)
+
+ggplot(bias_obs,
+       aes(x=as.factor(num_item), y = (bias_obs), group = selection,
+           color = selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.3) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5,
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "Bias theta_mean osservati",
+       subtitle = "Media random")
+
+uni_rmse_obs_theta_mean$distribution = "uni"
+sk_rmse_obs_theta_mean$distribution = "sk"
+normal_rmse_obs_theta_mean$distribution = "normal"
+
+rmse_obs = rbind(uni_rmse_obs_theta_mean, sk_rmse_obs_theta_mean, 
+                 normal_rmse_obs_theta_mean)
+ggplot(rmse_obs,
+       aes(x=as.factor(num_item), y = (rmse), group = selection,
+           color = selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.3) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5,
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "RMSE theta_mean osservati",
+       subtitle = "Media random") 
+
+uni_bias_obs_abs_theta_mean$distribution = "uni"
+sk_bias_obs_abs_theta_mean$distribution = "sk"
+normal_bias_obs_abs_theta_mean$distribution = "normal"
+
+bias_obs_abs = rbind(uni_bias_obs_abs_theta_mean, 
+                 sk_bias_obs_abs_theta_mean, 
+                 normal_bias_obs_abs_theta_mean)
+
+ggplot(bias_obs_abs,
+       aes(x=as.factor(num_item), y = (bias_obs_abs), group = selection,
+           color = selection)) +
+  geom_line(aes(linetype = selection), lwd = 1.3) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5,
+                                   hjust=1) ,
+        legend.position = "top") + facet_wrap(~distribution) +
+  labs(title = "Bias assoluto theta_mean osservati",
+       subtitle = "Media random")
+
+
+```
+
+# Bias assoluto per gruppi di theta  
+
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ "veri" (quelli simulati all'inizio, che quindi possono avere distribuzione normale, con skewness o uniforme).
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+ggplot(normal_bias_abs_groups_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("Bias assoluto normale")
+
+ggplot(sk_bias_abs_groups_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias assoluto sk")
+
+
+ggplot(uni_bias_abs_groups_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias assoluto uniform")
+
+```
+
+## Bias assoluto per gruppi di theta con media random 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+ggplot(normal_bias_abs_groups_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("Bias assoluto normale")
+
+ggplot(sk_bias_abs_groups_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias assoluto sk")
+
+
+ggplot(uni_bias_abs_groups_theta, 
+       aes(x=group, y = bias_obs_abs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias assoluto uniform")
+
+```
+
+
+# Bias per gruppi di theta
+La differenza è calcolata tra i $\theta$ calcolati per ognuno dei diversi nuovi nuovi test e i $\theta$ "veri" (quelli simulati all'inizio, che quindi possono avere distribuzione normale, con skewness o uniforme). 
+
+A differenza del punto precedente, il bias non ha il valore assoluto. 
+Essendo $\hat{\theta} - \theta$, valori positivi indicano sovrastima, valori negativi indicano sottostima. 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+ggplot(normal_bias_groups_theta, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("Bias  normale")
+
+ggplot(sk_bias_groups_theta, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias  sk")
+
+
+ggplot(uni_bias_groups_theta, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias  uniform")
+
+```
+
+## Con il bias calcolato per la media delle random
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+ggplot(normal_bias_groups_theta_mean, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("Bias  normale")
+
+ggplot(sk_bias_groups_theta_mean, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias  sk")
+
+
+ggplot(uni_bias_groups_theta_mean, 
+       aes(x=group, y = bias_obs, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("bias  uniform")
+
+```
+
+## RMSE per gruppi di theta 
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+ggplot(normal_rmse_groups_theta, 
+       aes(x=group, y = rmse, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("Normale uniforme")
+
+ggplot(sk_rmse_groups_theta, 
+       aes(x=group, y = rmse, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("RMSE sk")
+
+ggplot(uni_rmse_groups_theta, 
+       aes(x=group, y = rmse, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("RMSE uniforme")
+
+
+
+```
+
+## RmSE con la media delle random
+
+```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+
+ggplot(normal_rmse_groups_theta_mean, 
+       aes(x=group, y = rmse, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("Normale uniforme")
+
+ggplot(sk_rmse_groups_theta_mean, 
+       aes(x=group, y = rmse, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("RMSE sk")
+
+ggplot(uni_rmse_groups_theta_mean, 
+       aes(x=group, y = rmse, group = selection, 
+           color = selection)) + geom_line(aes(linetype = selection), 
+                                           lwd =1.3) + 
+  theme(legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(~num_item) + ggtitle("RMSE uniforme")
+
+
+
+```
+
+
+```{r, echo = FALSE}
+# head(theta_sk_theta[theta_sk_theta$selection %in% "cluster", ])
+# head(theta_sk_theta[theta_sk_theta$selection %in% "rangeNew", ])
+# head(theta_sk_theta[theta_sk_theta$selection %in% "range", ])
+
+```
+
